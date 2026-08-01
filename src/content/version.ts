@@ -7,7 +7,7 @@
 
 const VERSION_URL = '/release/release-version.json';
 const VERSION_CACHE_KEY = 'snb-version';
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
 interface VersionCache {
   version: string;
