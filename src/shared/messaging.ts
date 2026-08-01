@@ -17,4 +17,4 @@ export function isBridgeMessage(data: unknown): data is BridgeMessage {
 }
 
 /** Messages sent between the content script and the background service worker. */
-export type RuntimeMessage = { type: 'GET_CONFIG' } | { type: 'REQUEST_HOST_PERMISSION'; origin: string };
+export type RuntimeMessage = { type: 'GET_CONFIG' } | { type: 'REQUEST_HOST_PERMISSION'; host: string };

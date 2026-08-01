@@ -1,14 +1,24 @@
 /** Extension-wide settings persisted in chrome.storage.sync. */
 export interface ExtensionConfig {
-  /** User-configured Signals Notebook origin, e.g. "https://my-instance.signalsnotebook.com". */
-  snbOrigin: string | null;
+  /**
+   * User-configured Signals Notebook hosts, e.g. "my-instance.signalsnotebook.com"
+   * or a subdomain wildcard like "*.signalsnotebook.com". Always https, no path.
+   */
+  snbHosts: string[];
 }
 
 const STORAGE_KEY = 'config';
 
 const DEFAULT_CONFIG: ExtensionConfig = {
-  snbOrigin: null,
+  snbHosts: [],
 };
+
+/** A host label is alphanumeric/hyphen segments separated by dots; the leftmost segment may be a literal "*". */
+const HOST_PATTERN = /^(\*|[a-z0-9]([a-z0-9-]*[a-z0-9])?)(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i;
+
+export function isValidSnbHost(host: string): boolean {
+  return HOST_PATTERN.test(host);
+}
 
 export async function getConfig(): Promise<ExtensionConfig> {
   const stored = await chrome.storage.sync.get(STORAGE_KEY);
@@ -26,7 +36,7 @@ export function onConfigChanged(callback: (config: ExtensionConfig) => void): vo
   });
 }
 
-/** Derives a match pattern (e.g. "https://host/*") from a configured origin. */
-export function originToMatchPattern(origin: string): string {
-  return `${origin.replace(/\/+$/, '')}/*`;
+/** Derives a match pattern (e.g. "https://*.host.com/*") from a configured host. */
+export function hostToMatchPattern(host: string): string {
+  return `https://${host}/*`;
 }

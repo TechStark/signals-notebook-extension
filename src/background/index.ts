@@ -1,12 +1,14 @@
-import { getConfig, onConfigChanged, originToMatchPattern, type ExtensionConfig } from '@shared/config';
+import { getConfig, hostToMatchPattern, onConfigChanged, type ExtensionConfig } from '@shared/config';
 import type { RuntimeMessage } from '@shared/messaging';
 
 const CONTENT_SCRIPT_ID = 'snb-content';
 
 /**
- * (Re)registers the dynamic content script against the user-configured SNB
- * origin. Content scripts can't be scoped statically in manifest.json since
- * the target domain is only known at runtime (see docs/architecture.md).
+ * (Re)registers the dynamic content script against every configured SNB
+ * host that currently has a granted permission. Content scripts can't be
+ * scoped statically in manifest.json since the target domains are only
+ * known at runtime (see docs/architecture.md). Hosts without a granted
+ * permission are silently skipped rather than blocking the others.
  */
 async function syncContentScriptRegistration(config: ExtensionConfig): Promise<void> {
   const existing = await chrome.scripting.getRegisteredContentScripts({ ids: [CONTENT_SCRIPT_ID] });
@@ -14,11 +16,12 @@ async function syncContentScriptRegistration(config: ExtensionConfig): Promise<v
     await chrome.scripting.unregisterContentScripts({ ids: [CONTENT_SCRIPT_ID] });
   }
 
-  if (!config.snbOrigin) return;
-
-  const matches = [originToMatchPattern(config.snbOrigin)];
-  const granted = await chrome.permissions.contains({ origins: matches });
-  if (!granted) return;
+  const candidateMatches = config.snbHosts.map(hostToMatchPattern);
+  const matches = [];
+  for (const pattern of candidateMatches) {
+    if (await chrome.permissions.contains({ origins: [pattern] })) matches.push(pattern);
+  }
+  if (matches.length === 0) return;
 
   await chrome.scripting.registerContentScripts([
     {
@@ -45,7 +48,7 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, _sender, sendResp
   }
 
   if (message.type === 'REQUEST_HOST_PERMISSION') {
-    void chrome.permissions.request({ origins: [originToMatchPattern(message.origin)] }).then(sendResponse);
+    void chrome.permissions.request({ origins: [hostToMatchPattern(message.host)] }).then(sendResponse);
     return true;
   }
 

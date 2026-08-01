@@ -13,17 +13,29 @@
 
 ## Why the target domain isn't in `manifest.json`
 
-`content_scripts.matches` is static and can't be changed at runtime, but the
-SNB domain is only known once the user enters it in the options page. So:
+`content_scripts.matches` is static and can't be changed at runtime, but SNB
+domains are only known once the user enters them in the options page — and
+users may have several environments (e.g. `dev.signalsnotebook.com`,
+`staging.signalsnotebook.com`). So:
 
 1. `manifest.json` declares `optional_host_permissions: ["https://*/*"]` and
    `permissions: ["scripting", "storage"]`, but no `content_scripts` entry.
-2. The options page collects the user's SNB origin and calls
-   `chrome.permissions.request()` for that specific origin only (see
-   `src/options/options.ts`).
-3. Once granted, the background worker calls
-   `chrome.scripting.registerContentScripts()` scoped to that origin (see
-   `src/background/index.ts`).
+2. The options page lets the user add any number of hosts — either a literal
+   host (`my-instance.signalsnotebook.com`) or a subdomain wildcard
+   (`*.signalsnotebook.com`) — and calls `chrome.permissions.request()` for
+   each one individually (see `src/options/options.ts`).
+3. Once granted, the background worker registers a single content script
+   whose `matches` array covers every host that currently has a granted
+   permission (see `src/background/index.ts`). Hosts saved to config but not
+   yet granted are skipped rather than blocking the others.
+
+Subdomain wildcards work because Chrome's match pattern syntax allows `*` only
+as the leftmost label of the host (`*.example.com`), which is exactly what
+`chrome.permissions.request()` and `registerContentScripts()` accept natively
+— no extra parsing needed. Arbitrary wildcard positions (mid-label, in the
+path, etc.) aren't supported by the platform, so unrelated domains still need
+to be added as separate literal entries. `isValidSnbHost` in `src/shared/config.ts`
+enforces this shape at input time.
 
 This keeps the extension's footprint minimal (no all-sites access at install
 time) and keeps Chrome Web Store review friction low.
