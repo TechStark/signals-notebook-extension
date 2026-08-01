@@ -11,8 +11,8 @@ src/
   content/       # Content script injected into the configured SNB domain (isolated world)
   injected/      # Main-world bridge script (e.g. for reading page-context state)
   background/    # Service worker: config, permissions, dynamic content script registration
-  popup/         # Extension popup UI
-  options/       # Options page — user configures their SNB domain
+  popup/         # Extension popup UI (React + antd)
+  options/       # Options page — user configures their SNB hosts (React + antd)
   shared/        # Cross-context types and storage helpers
 public/          # Static assets (icons)
 docs/            # Architecture and design notes
@@ -31,8 +31,8 @@ Load the extension in Chrome:
 2. Enable "Developer mode"
 3. Click "Load unpacked" and select the `dist/` directory
 
-After the first run, open the extension's options page and enter your
-Signals Notebook URL to grant it host access.
+After the first run, open the extension's options page and add your
+Signals Notebook host(s) to grant it host access.
 
 ## Build
 
