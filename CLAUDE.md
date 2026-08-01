@@ -22,7 +22,7 @@ This is a Chrome MV3 extension that layers enhancements onto Signals Notebook, a
 
 `manifest.config.ts` declares `optional_host_permissions: ["https://*/*"]` and `permissions: ["scripting", "storage", "activeTab"]` but no `content_scripts`. Static `matches` patterns can't be changed at runtime, and SNB hosts are only known once the user adds them in the options page. So instead:
 
-1. `src/options/OptionsApp.tsx` lets the user add any number of hosts — a literal host (`my-instance.signalsnotebook.com`) or a subdomain wildcard (`*.signalsnotebook.com`) — validated by `isValidSnbHost`, and calls `chrome.runtime.sendMessage({ type: 'REQUEST_HOST_PERMISSION', host })` for each one individually.
+1. `src/options/OptionsApp.tsx` lets the user add any number of hosts — a literal host (`my-instance.signalsresearch.revvitycloud.com`) or a subdomain wildcard (`*.signalsresearch.revvitycloud.com`) — validated by `isValidSnbHost`, and calls `chrome.runtime.sendMessage({ type: 'REQUEST_HOST_PERMISSION', host })` for each one individually.
 2. `src/background/index.ts` requests that specific host via `chrome.permissions.request()`, then registers a single content script whose `matches` array covers every configured host that currently has a granted permission (hosts saved but not yet granted are skipped, not blocking).
 3. The registration is kept in sync with the stored config via `onConfigChanged` (fires on any `chrome.storage.sync` change) and on `chrome.runtime.onInstalled`.
 

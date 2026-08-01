@@ -15,14 +15,14 @@
 
 `content_scripts.matches` is static and can't be changed at runtime, but SNB
 domains are only known once the user enters them in the options page — and
-users may have several environments (e.g. `dev.signalsnotebook.com`,
-`staging.signalsnotebook.com`). So:
+users may have several environments (e.g. `dev.signalsresearch.revvitycloud.com`,
+`staging.signalsresearch.revvitycloud.com`). So:
 
 1. `manifest.json` declares `optional_host_permissions: ["https://*/*"]` and
    `permissions: ["scripting", "storage"]`, but no `content_scripts` entry.
 2. The options page lets the user add any number of hosts — either a literal
-   host (`my-instance.signalsnotebook.com`) or a subdomain wildcard
-   (`*.signalsnotebook.com`) — and calls `chrome.permissions.request()` for
+   host (`my-instance.signalsresearch.revvitycloud.com`) or a subdomain wildcard
+   (`*.signalsresearch.revvitycloud.com`) — and calls `chrome.permissions.request()` for
    each one individually (see `src/options/OptionsApp.tsx`).
 3. Once granted, the background worker registers a single content script
    whose `matches` array covers every host that currently has a granted

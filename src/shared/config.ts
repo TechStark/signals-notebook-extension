@@ -1,8 +1,8 @@
 /** Extension-wide settings persisted in chrome.storage.sync. */
 export interface ExtensionConfig {
   /**
-   * User-configured Signals Notebook hosts, e.g. "my-instance.signalsnotebook.com"
-   * or a subdomain wildcard like "*.signalsnotebook.com". Always https, no path.
+   * User-configured Signals Notebook hosts, e.g. "my-instance.signalsresearch.revvitycloud.com"
+   * or a subdomain wildcard like "*.signalsresearch.revvitycloud.com". Always https, no path.
    */
   snbHosts: string[];
 }

@@ -27,7 +27,7 @@ function AddHostForm({ existing, onAdded }: { existing: string[]; onAdded: (host
     const host = value.trim().toLowerCase();
 
     if (!isValidSnbHost(host)) {
-      message.error('Enter a valid host, e.g. my-instance.signalsnotebook.com or *.signalsnotebook.com');
+      message.error('Enter a valid host, e.g. my-instance.signalsresearch.revvitycloud.com or *.signalsresearch.revvitycloud.com');
       return;
     }
     if (existing.includes(host)) {
@@ -53,7 +53,7 @@ function AddHostForm({ existing, onAdded }: { existing: string[]; onAdded: (host
   return (
     <Space.Compact style={{ width: '100%' }}>
       <Input
-        placeholder="my-instance.signalsnotebook.com or *.signalsnotebook.com"
+        placeholder="my-instance.signalsresearch.revvitycloud.com or *.signalsresearch.revvitycloud.com"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onPressEnter={handleSubmit}
@@ -84,7 +84,7 @@ function OptionsPage() {
       <Typography.Title level={3}>Signals Notebook Extension</Typography.Title>
       <Typography.Paragraph type="secondary">
         Add the Signals Notebook hosts where enhancements should run. Use a subdomain wildcard (e.g.{' '}
-        <Typography.Text code>*.signalsnotebook.com</Typography.Text>) to cover every instance under one domain.
+        <Typography.Text code>*.signalsresearch.revvitycloud.com</Typography.Text>) to cover every instance under one domain.
       </Typography.Paragraph>
       <AddHostForm existing={hosts} onAdded={(host) => void persist([...hosts, host])} />
       <HostList hosts={hosts} onRemove={(host) => void persist(hosts.filter((h) => h !== host))} />

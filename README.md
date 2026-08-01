@@ -1,6 +1,6 @@
 # Signals Notebook Extension
 
-Chrome extension providing enhanced features for [Signals Notebook](https://www.signalsnotebook.com/).
+Chrome extension providing enhanced features for [Signals Notebook](https://www.signalsresearch.revvitycloud.com/).
 
 See [docs/architecture.md](docs/architecture.md) for design details.
 
