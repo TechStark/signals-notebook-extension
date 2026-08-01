@@ -35,6 +35,6 @@ jobs:
         uses: actions/upload-artifact@v7
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
-          name: dist
+          name: snb-extension
           path: dist
           retention-days: 7
