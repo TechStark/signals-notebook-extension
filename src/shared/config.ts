@@ -22,7 +22,8 @@ export function isValidSnbHost(host: string): boolean {
 
 export async function getConfig(): Promise<ExtensionConfig> {
   const stored = await chrome.storage.sync.get(STORAGE_KEY);
-  return { ...DEFAULT_CONFIG, ...stored[STORAGE_KEY] };
+  const storedConfig = stored[STORAGE_KEY] as ExtensionConfig | undefined;
+  return { ...DEFAULT_CONFIG, ...storedConfig };
 }
 
 export async function setConfig(config: ExtensionConfig): Promise<void> {
@@ -32,7 +33,8 @@ export async function setConfig(config: ExtensionConfig): Promise<void> {
 export function onConfigChanged(callback: (config: ExtensionConfig) => void): void {
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'sync' || !changes[STORAGE_KEY]) return;
-    callback({ ...DEFAULT_CONFIG, ...changes[STORAGE_KEY].newValue });
+    const newValue = changes[STORAGE_KEY].newValue as ExtensionConfig | undefined;
+    callback({ ...DEFAULT_CONFIG, ...newValue });
   });
 }
 
