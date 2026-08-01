@@ -10,16 +10,22 @@ importers:
     devDependencies:
       '@crxjs/vite-plugin':
         specifier: ^2.7.1
-        version: 2.7.1(vite@7.3.6)
+        version: 2.7.1(vite@7.3.6(@types/node@20.19.43))
       '@types/chrome':
         specifier: ^0.0.280
         version: 0.0.280
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.43
+      esbuild:
+        specifier: ^0.28.1
+        version: 0.28.1
       typescript:
         specifier: ^5.6.0
         version: 5.9.3
       vite:
         specifier: ^7.0.0
-        version: 7.3.6
+        version: 7.3.6(@types/node@20.19.43)
 
 packages:
 
@@ -340,6 +346,9 @@ packages:
   '@types/har-format@1.2.16':
     resolution: {integrity: sha512-fluxdy7ryD3MV6h8pTfTYpy/xQzCFC7m89nOH9y94cNqJ1mDIDPut7MnRHI3F6qRmh/cT2fUjG1MLdCNb4hE9A==}
 
+  '@types/node@20.19.43':
+    resolution: {integrity: sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA==}
+
   '@webcomponents/custom-elements@1.6.0':
     resolution: {integrity: sha512-CqTpxOlUCPWRNUPZDxT5v2NnHXA4oox612iUGnmTUGQFhZ1Gkj8kirtl/2wcF6MqX7+PqqicZzOCBKKfIn0dww==}
 
@@ -492,6 +501,9 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
+  undici-types@6.21.0:
+    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
+
   universalify@2.0.1:
     resolution: {integrity: sha512-gptHNQghINnc/vTGIk0SOFGFNXw7JVrlRUtConJRlvaw6DuX0wO5Jeko9sWrMBhh+PsYAZ7oXAiOnf/UKogyiw==}
     engines: {node: '>= 10.0.0'}
@@ -538,7 +550,7 @@ packages:
 
 snapshots:
 
-  '@crxjs/vite-plugin@2.7.1(vite@7.3.6)':
+  '@crxjs/vite-plugin@2.7.1(vite@7.3.6(@types/node@20.19.43))':
     dependencies:
       '@webcomponents/custom-elements': 1.6.0
       acorn-walk: 8.3.5
@@ -554,7 +566,7 @@ snapshots:
       rollup: 2.80.0
       rxjs: 7.5.7
       tinyglobby: 0.2.17
-      vite: 7.3.6
+      vite: 7.3.6(@types/node@20.19.43)
     transitivePeerDependencies:
       - supports-color
 
@@ -727,6 +739,10 @@ snapshots:
   '@types/filewriter@0.0.33': {}
 
   '@types/har-format@1.2.16': {}
+
+  '@types/node@20.19.43':
+    dependencies:
+      undici-types: 6.21.0
 
   '@webcomponents/custom-elements@1.6.0': {}
 
@@ -909,9 +925,11 @@ snapshots:
 
   typescript@5.9.3: {}
 
+  undici-types@6.21.0: {}
+
   universalify@2.0.1: {}
 
-  vite@7.3.6:
+  vite@7.3.6(@types/node@20.19.43):
     dependencies:
       esbuild: 0.28.1
       fdir: 6.5.0(picomatch@4.0.5)
@@ -920,4 +938,5 @@ snapshots:
       rollup: 4.62.3
       tinyglobby: 0.2.17
     optionalDependencies:
+      '@types/node': 20.19.43
       fsevents: 2.3.3
