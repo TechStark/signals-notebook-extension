@@ -1,5 +1,6 @@
 import { mountHost } from './mount';
 import { fetchSnbVersion, isVersionGte, VERSION_26_7_0 } from './version';
+import { initSampleEnhancement } from './sampleEnhancement';
 
 /**
  * Entry point for the dynamically-registered content script (see
@@ -19,6 +20,9 @@ async function init() {
       // Features available in 26.7.0+
     }
   }
+
+  // Initialize Sample Enhancement module
+  initSampleEnhancement();
 }
 
 init();
