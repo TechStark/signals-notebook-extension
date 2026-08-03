@@ -41,10 +41,10 @@ function createSampleToolsButton(eid: string): HTMLElement {
   const span = document.createElement('span');
   span.className = 'd-inline-flex align-items-center';
   
-  // Lightning icon SVG using FontAwesome-style classes
+  // Lightning icon SVG (simple bolt design)
   span.innerHTML = `
-    <svg aria-hidden="true" focusable="false" class="svg-inline--fa fa-bolt fa-lg snb-icon" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512">
-      <path fill="currentColor" d="M305 239c9.4 9.4 9.4 24.6 0 33.9L113 465c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l175-175L79 81c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0L305 239z"></path>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: inherit;">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
     </svg>
   `;
   
