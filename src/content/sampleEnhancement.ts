@@ -60,12 +60,18 @@ function createSampleToolsButton(eid: string): HTMLElement {
 }
 
 /**
- * Finds the Sample table header controls container (binder__element-header-controls).
- * Returns the last one (where action buttons live) or null if not found.
+ * Finds the Sample table header controls container within the focused binder element.
+ * Returns the header controls where action buttons live, or null if not found.
  */
 function findSampleHeaderControls(): HTMLElement | null {
-  // Find all binder__element-header-controls divs
-  const controls = document.querySelectorAll<HTMLElement>('.binder__element-header-controls');
+  // Find the focused binder element (the one with samplesContainer content)
+  const focusedElement = document.querySelector<HTMLElement>('.binder__element--focused');
+  if (!focusedElement) {
+    return null;
+  }
+  
+  // Within the focused element, find the header controls that contain action buttons
+  const controls = focusedElement.querySelectorAll<HTMLElement>('.binder__element-header-controls');
   
   // Find the one that contains action buttons (btnElementTrash, action.exportToClipboard, etc.)
   for (const control of Array.from(controls).reverse()) {
