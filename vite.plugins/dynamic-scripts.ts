@@ -21,7 +21,7 @@ export function dynamicScripts(): Plugin {
   let config: ResolvedConfig;
 
   const build = async (outdir: string) => {
-    await esbuild.build({
+    const result = await esbuild.build({
       entryPoints: SCRIPTS,
       bundle: true,
       format: 'esm',
@@ -30,7 +30,9 @@ export function dynamicScripts(): Plugin {
       entryNames: '[name]/index',
       outdir: path.join(outdir, 'src'),
       alias: { '@shared': fileURLToPath(new URL('../src/shared', import.meta.url)) },
+      metafile: true,
     });
+    return Object.keys(result.metafile.inputs).map((file) => path.resolve(file));
   };
 
   return {
@@ -42,12 +44,17 @@ export function dynamicScripts(): Plugin {
       if (config.command === 'build') await build(config.build.outDir);
     },
     async configureServer(server) {
-      await build(config.build.outDir);
-      for (const file of Object.values(SCRIPTS)) {
-        server.watcher.add(file);
-      }
+      let tracked = new Set(await build(config.build.outDir));
+      const syncWatcher = (files: Iterable<string>) => {
+        for (const file of files) server.watcher.add(file);
+      };
+      syncWatcher(tracked);
+
       server.watcher.on('change', async (file) => {
-        if (Object.values(SCRIPTS).includes(file)) await build(config.build.outDir);
+        if (!tracked.has(file)) return;
+        const inputs = await build(config.build.outDir);
+        tracked = new Set(inputs);
+        syncWatcher(tracked);
       });
     },
   };
