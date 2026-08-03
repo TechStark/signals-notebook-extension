@@ -6,8 +6,11 @@
  * provides various enhancements for Sample data, starting with EID retrieval.
  */
 
+import throttle from 'lodash.throttle';
+
 const BUTTON_ID = 'snb-ext-sample-tools-btn';
 const SAMPLES_CONTAINER_FOCUS_PREFIX = 'samplesContainer:';
+const TOOLBAR_OBSERVER_THROTTLE_MS = 200;
 
 /**
  * Parses the samplesContainer EID from the URL's focus parameter.
@@ -19,7 +22,7 @@ function parseSamplesContainerEid(): string | null {
   if (!focus || !focus.startsWith(SAMPLES_CONTAINER_FOCUS_PREFIX)) {
     return null;
   }
-  return focus.slice(SAMPLES_CONTAINER_FOCUS_PREFIX.length);
+  return focus;
 }
 
 /**
@@ -103,14 +106,14 @@ function tryInjectButton(): boolean {
   // Find sample header controls
   const headerControls = findSampleHeaderControls();
   if (!headerControls) {
-    console.log('[SNB Extension] Sample Tools: header controls not found');
+    console.debug('[SNB Extension] Sample Tools: header controls not found');
     return false;
   }
 
   // Create and inject button
   const btn = createSampleToolsButton(eid);
   headerControls.appendChild(btn);
-  console.log(`[SNB Extension] Sample Tools button injected for container: ${eid}`);
+  console.log(`[SNB Extension] Sample Tools button injected for ${eid}`);
   
   return true;
 }
@@ -145,12 +148,14 @@ function handleUrlChange(): void {
  * Sets up MutationObserver to detect toolbar appearance and inject button.
  */
 function setupToolbarObserver(): void {
-  const observer = new MutationObserver(() => {
+  const throttledCheck = throttle(() => {
     const eid = parseSamplesContainerEid();
     if (eid) {
       tryInjectButton();
     }
-  });
+  }, TOOLBAR_OBSERVER_THROTTLE_MS);
+
+  const observer = new MutationObserver(throttledCheck);
 
   observer.observe(document.body, {
     childList: true,
