@@ -3,15 +3,21 @@
  * 
  * Monitors URL changes and injects enhancement controls into the Sample table toolbar
  * when the URL focus parameter indicates a samplesContainer context. This module
- * provides various enhancements for Sample data, starting with EID retrieval.
+ * provides various enhancements for Sample data using React + antd.
  */
 
+import React from 'react';
+import { createRoot } from 'react-dom/client';
 import throttle from 'lodash.throttle';
+import { ConfigProvider, App } from 'antd';
+import { SampleToolsModal } from './SampleToolsModal';
 
 const BUTTON_ID = 'snb-ext-sample-tools-btn';
-const MODAL_ID = 'snb-ext-sample-tools-modal';
+const REACT_ROOT_ID = 'snb-ext-sample-tools-root';
 const SAMPLES_CONTAINER_FOCUS_PREFIX = 'samplesContainer:';
 const TOOLBAR_OBSERVER_THROTTLE_MS = 200;
+
+let reactRoot: ReturnType<typeof createRoot> | null = null;
 
 /**
  * Parses the samplesContainer EID from the URL's focus parameter.
@@ -27,194 +33,73 @@ function parseSamplesContainerEid(): string | null {
 }
 
 /**
- * Fetches samplesContainer data from SNB API.
+ * React App component that manages the Modal state.
  */
-async function fetchSamplesContainerData(eid: string): Promise<{eid: string; name: string; samples: {id: string; name: string}[]} | null> {
-  try {
-    // Get current page's origin for API calls
-    const baseUrl = window.location.origin;
+const SampleToolsApp: React.FC<{ eid: string }> = ({ eid }) => {
+  const [open, setOpen] = React.useState(false);
+
+  const handleOpen = React.useCallback(() => {
+    setOpen(true);
+  }, []);
+
+  // Expose open function globally
+  React.useEffect(() => {
+    (window as unknown as { __snbExtOpenModal: () => void }).__snbExtOpenModal = handleOpen;
+    return () => {
+      delete (window as unknown as { __snbExtOpenModal?: () => void }).__snbExtOpenModal;
+    };
+  }, [handleOpen]);
+
+  return (
+    <SampleToolsModal
+      open={open}
+      eid={eid}
+      onClose={() => setOpen(false)}
+    />
+  );
+};
+
+/**
+ * Gets or creates the React root container.
+ */
+function getReactRoot(): HTMLElement {
+  let root = document.getElementById(REACT_ROOT_ID);
+  if (!root) {
+    root = document.createElement('div');
+    root.id = REACT_ROOT_ID;
+    document.body.appendChild(root);
     
-    // Fetch samplesContainer details
-    const response = await fetch(`${baseUrl}/api/rest/v1/samplesContainers/${eid}`, {
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
-    
-    if (!response.ok) {
-      console.error(`[SNB Extension] API error: ${response.status}`);
-      return null;
-    }
-    
-    const data = await response.json();
-    return data;
-  } catch (e) {
-    console.error('[SNB Extension] Error fetching samplesContainer:', e);
-    return null;
+    // Initialize React root
+    reactRoot = createRoot(root);
   }
+  return root;
 }
 
 /**
- * Creates the Modal element with simple CSS styling.
+ * Renders the React app with the Modal.
  */
-function createModal(): HTMLElement {
-  // Modal overlay (backdrop)
-  const overlay = document.createElement('div');
-  overlay.id = MODAL_ID;
-  overlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 999999;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-  `;
-  
-  // Modal container
-  const modal = document.createElement('div');
-  modal.style.cssText = `
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
-    max-width: 600px;
-    width: 90%;
-    max-height: 80vh;
-    overflow: auto;
-  `;
-  
-  // Modal header
-  const header = document.createElement('div');
-  header.style.cssText = `
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 20px;
-    border-bottom: 1px solid #e8e8e8;
-  `;
-  header.innerHTML = `
-    <h3 style="margin: 0; font-size: 18px; font-weight: 600;">Sample Tools</h3>
-    <button id="snb-ext-modal-close" style="
-      background: none;
-      border: none;
-      font-size: 24px;
-      cursor: pointer;
-      color: #999;
-      padding: 0 4px;
-      line-height: 1;
-    ">×</button>
-  `;
-  
-  // Modal content
-  const content = document.createElement('div');
-  content.id = 'snb-ext-modal-content';
-  content.style.cssText = `
-    padding: 20px;
-  `;
-  content.innerHTML = `<p style="color: #666; text-align: center;">Loading...</p>`;
-  
-  modal.appendChild(header);
-  modal.appendChild(content);
-  overlay.appendChild(modal);
-  
-  // Close on overlay click
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) {
-      closeModal();
-    }
-  });
-  
-  // Close button
-  const closeBtn = header.querySelector('#snb-ext-modal-close');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', closeModal);
+function renderReactApp(eid: string): void {
+  const root = getReactRoot();
+  if (!reactRoot) {
+    reactRoot = createRoot(root);
   }
   
-  return overlay;
-}
-
-/**
- * Closes and removes the modal.
- */
-function closeModal(): void {
-  const modal = document.getElementById(MODAL_ID);
-  if (modal) {
-    modal.remove();
-  }
-}
-
-/**
- * Updates the modal content with samplesContainer data.
- */
-function updateModalContent(data: {eid: string; name: string; samples: {id: string; name: string}[]} | null, eid: string): void {
-  const content = document.getElementById('snb-ext-modal-content');
-  if (!content) return;
-  
-  if (!data) {
-    content.innerHTML = `
-      <div style="text-align: center; color: #999;">
-        <p>Failed to load data</p>
-        <p style="font-size: 12px; color: #666;">EID: ${eid}</p>
-      </div>
-    `;
-    return;
-  }
-  
-  const sampleCount = data.samples?.length || 0;
-  const sampleList = data.samples?.map((s) => `<li>${s.name || s.id}</li>`).join('') || '';
-  
-  content.innerHTML = `
-    <div>
-      <div style="margin-bottom: 16px;">
-        <label style="font-size: 12px; color: #999; display: block; margin-bottom: 4px;">Container EID</label>
-        <code style="font-size: 13px; background: #f5f5f5; padding: 4px 8px; border-radius: 4px; word-break: break-all;">${data.eid || eid}</code>
-      </div>
-      <div style="margin-bottom: 16px;">
-        <label style="font-size: 12px; color: #999; display: block; margin-bottom: 4px;">Container Name</label>
-        <span style="font-size: 14px;">${data.name || 'N/A'}</span>
-      </div>
-      <div style="margin-bottom: 16px;">
-        <label style="font-size: 12px; color: #999; display: block; margin-bottom: 4px;">Sample Count</label>
-        <span style="font-size: 24px; font-weight: 600;">${sampleCount}</span>
-      </div>
-      ${sampleCount > 0 ? `
-      <div>
-        <label style="font-size: 12px; color: #999; display: block; margin-bottom: 8px;">Samples</label>
-        <ul style="margin: 0; padding-left: 20px; max-height: 200px; overflow-y: auto;">
-          ${sampleList}
-        </ul>
-      </div>
-      ` : ''}
-    </div>
-  `;
-}
-
-/**
- * Opens the modal and fetches data.
- */
-async function openModal(eid: string): Promise<void> {
-  // Remove existing modal if any
-  closeModal();
-  
-  // Create and append modal
-  const modal = createModal();
-  document.body.appendChild(modal);
-  
-  // Fetch data
-  const data = await fetchSamplesContainerData(eid);
-  updateModalContent(data, eid);
+  reactRoot.render(
+    <React.StrictMode>
+      <ConfigProvider>
+        <App>
+          <SampleToolsApp eid={eid} />
+        </App>
+      </ConfigProvider>
+    </React.StrictMode>
+  );
 }
 
 /**
  * Creates the toolbar button element with lightning icon.
  * Wrapped in a container div to match SNB's DOM structure.
  */
-function createSampleToolsButton(eid: string): HTMLElement {
+function createSampleToolsButton(): HTMLElement {
   // Container with display: contents (SNB pattern)
   const container = document.createElement('div');
   container.style.display = 'contents';
@@ -239,9 +124,12 @@ function createSampleToolsButton(eid: string): HTMLElement {
   btn.appendChild(span);
   container.appendChild(btn);
 
-  // Click handler - opens modal
+  // Click handler - opens modal via global function
   btn.addEventListener('click', () => {
-    openModal(eid);
+    const openModal = (window as unknown as { __snbExtOpenModal?: () => void }).__snbExtOpenModal;
+    if (openModal) {
+      openModal();
+    }
   });
 
   return container;
@@ -291,14 +179,18 @@ function tryInjectButton(): boolean {
   // Find sample header controls
   const headerControls = findSampleHeaderControls();
   if (!headerControls) {
-    console.debug('[SNB Extension] Sample Tools: header controls not found');
     return false;
   }
 
   // Create and inject button
-  const btn = createSampleToolsButton(eid);
+  const btn = createSampleToolsButton();
   headerControls.appendChild(btn);
   console.log(`[SNB Extension] Sample Tools button injected for ${eid}`);
+  
+  // Initialize React app if not already
+  if (!document.getElementById(REACT_ROOT_ID)) {
+    renderReactApp(eid);
+  }
   
   return true;
 }

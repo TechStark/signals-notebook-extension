@@ -30,6 +30,8 @@ export function dynamicScripts(): Plugin {
       entryNames: '[name]/index',
       outdir: path.join(outdir, 'src'),
       alias: { '@shared': fileURLToPath(new URL('../src/shared', import.meta.url)) },
+      loader: { '.tsx': 'tsx', '.ts': 'ts' },
+      jsx: 'automatic',
       metafile: true,
     });
     return Object.keys(result.metafile.inputs).map((file) => path.resolve(file));
