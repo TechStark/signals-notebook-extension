@@ -39,15 +39,24 @@ interface EntityResponse {
   eid: string;
 }
 
-// Columns to display (filter from API response)
-const DISPLAY_COLUMNS = [
-  { key: 'sampleId', title: 'ID' },
-  { key: '1', title: 'Created Date' },
-  { key: 'Status', title: 'Status' },
-];
+/**
+ * Extracts a display label from a cell value.
+ * API values can be either a plain scalar, or an object shaped like
+ * `{ auto?: string; value?: string }`.
+ */
+function extractLabel(value: unknown): string {
+  if (typeof value === 'object' && value !== null) {
+    const obj = value as { auto?: string; value?: string };
+    return obj.auto || obj.value || '-';
+  }
+  if (value === null || value === undefined || value === '') {
+    return '-';
+  }
+  return String(value);
+}
 
 /**
- * Formats a date string to local format.
+ * Formats a date-like cell value to local format.
  */
 function formatDate(value: unknown): string {
   if (typeof value === 'object' && value !== null && 'auto' in value) {
@@ -60,6 +69,63 @@ function formatDate(value: unknown): string {
     return dayjs(value).format('LLL');
   }
   return '-';
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  Active: 'green',
+  Closed: 'red',
+};
+
+function getStatusColor(status: string): string {
+  return STATUS_COLORS[status] ?? 'default';
+}
+
+/** Sorter that compares two rows by a string label extracted from `key`. */
+function labelSorter(key: string, extractor: (value: unknown) => string = extractLabel) {
+  return (a: RowData, b: RowData) => extractor(a[key]).localeCompare(extractor(b[key]));
+}
+
+/** Column for plain text/id values, rendered and sorted as extracted labels. */
+function createTextColumn(key: string, title: string): TableColumnsType<RowData>[number] {
+  return {
+    title,
+    dataIndex: key,
+    key,
+    render: (value: unknown) => extractLabel(value),
+    sorter: labelSorter(key),
+  };
+}
+
+/** Column for date values, rendered via `formatDate` and sorted chronologically. */
+function createDateColumn(key: string, title: string): TableColumnsType<RowData>[number] {
+  return {
+    title,
+    dataIndex: key,
+    key,
+    render: (value: unknown) => formatDate(value),
+    sorter: labelSorter(key, formatDate),
+  };
+}
+
+/** Column for status values, rendered as a colored Tag with filter support. */
+function createStatusColumn(
+  key: string,
+  title: string,
+  statusOptions: string[],
+): TableColumnsType<RowData>[number] {
+  return {
+    title,
+    dataIndex: key,
+    key,
+    width: 120,
+    render: (value: unknown) => {
+      const status = extractLabel(value);
+      return <Tag color={getStatusColor(status)}>{status}</Tag>;
+    },
+    sorter: labelSorter(key),
+    filters: statusOptions.map((status) => ({ text: status, value: status })),
+    onFilter: (value, record) => extractLabel(record[key]) === value,
+  };
 }
 
 /**
@@ -110,6 +176,15 @@ async function fetchSampleTableContent(link: string): Promise<SampleTableData | 
     console.error('[SNB Extension] Error fetching sample table:', e);
     return null;
   }
+}
+
+// Columns to display, in order, built via the per-type factories above.
+function buildColumns(): TableColumnsType<RowData> {
+  return [
+    createTextColumn('sampleId', 'ID'),
+    createDateColumn('1', 'Created Date'),
+    createStatusColumn('Status', 'Status', ['Active', 'Closed', 'Cancelled']),
+  ];
 }
 
 /**
@@ -163,79 +238,7 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
     },
   };
 
-  // Build filtered table columns with filter and sort
-  const columns: TableColumnsType<RowData> = DISPLAY_COLUMNS.map((displayCol) => {
-    const isDateColumn = displayCol.key === '1';
-    const isIdColumn = displayCol.key === 'sampleId';
-    const isStatusColumn = displayCol.key === 'Status';
-
-    return {
-      title: displayCol.title,
-      dataIndex: displayCol.key,
-      key: displayCol.key,
-      width: isStatusColumn ? 120 : undefined,
-      render: (value: unknown) => {
-        if (isDateColumn) {
-          return formatDate(value);
-        }
-        // Handle object values (e.g., sampleId: { auto: "Sample-3681", value: "sample:xxx" })
-        if (typeof value === 'object' && value !== null) {
-          const obj = value as { auto?: string; value?: string };
-          if (isStatusColumn) {
-            const status = obj.auto || obj.value || '-';
-            const color = status === 'Active' ? 'green' : status === 'Closed' ? 'red' : 'default';
-            return <Tag color={color}>{status}</Tag>;
-          }
-          return obj.auto || obj.value || '-';
-        }
-        if (isStatusColumn) {
-          const status = String(value);
-          const color = status === 'Active' ? 'green' : status === 'Closed' ? 'red' : 'default';
-          return <Tag color={color}>{status}</Tag>;
-        }
-        return value ?? '-';
-      },
-      sorter: isDateColumn
-        ? (a, b) => {
-          const aVal = a[displayCol.key];
-          const bVal = b[displayCol.key];
-          const aDate = formatDate(aVal);
-          const bDate = formatDate(bVal);
-          return aDate.localeCompare(bDate);
-        }
-        : isIdColumn || isStatusColumn
-        ? (a, b) => {
-          const getVal = (row: RowData) => {
-            const v = row[displayCol.key];
-            if (typeof v === 'object' && v !== null) {
-              return (v as { auto?: string }).auto || '';
-            }
-            return String(v || '');
-          };
-          return getVal(a).localeCompare(getVal(b));
-        }
-        : undefined,
-      filters: isStatusColumn
-        ? [
-            { text: 'Active', value: 'Active' },
-            { text: 'Closed', value: 'Closed' },
-            { text: 'Cancelled', value: 'Cancelled' },
-          ]
-        : undefined,
-      onFilter: isStatusColumn
-        ? (value, record) => {
-            const v = record[displayCol.key];
-            let status = '';
-            if (typeof v === 'object' && v !== null) {
-              status = (v as { auto?: string }).auto || '';
-            } else {
-              status = String(v || '');
-            }
-            return status === value;
-          }
-        : undefined,
-    };
-  });
+  const columns = buildColumns();
 
   return (
     <Modal
@@ -245,7 +248,7 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
       title="Sample Tools"
       width={1000}
       style={{ top: 20 }}
-      destroyOnClose
+      destroyOnHidden
     >
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
@@ -254,7 +257,7 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
       ) : error ? (
         <Alert
           type="error"
-          message={error}
+          title={error}
           description={<Text type="secondary">EID: {eid}</Text>}
         />
       ) : tableData ? (
