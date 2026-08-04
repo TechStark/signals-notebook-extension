@@ -275,7 +275,7 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
             )}
           </div>
           <Table
-            rowKey="_id"
+            rowKey="eid"
             columns={columns}
             dataSource={tableData.rows}
             rowSelection={rowSelection}
