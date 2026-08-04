@@ -11,6 +11,9 @@ importers:
       antd:
         specifier: ^6.5.3
         version: 6.5.3(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      dayjs:
+        specifier: ^1.11.21
+        version: 1.11.21
       lodash.throttle:
         specifier: ^4.1.1
         version: 4.1.1

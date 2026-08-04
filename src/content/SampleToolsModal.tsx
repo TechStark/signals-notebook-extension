@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Spin, Typography, Table, Alert } from 'antd';
-import type { TableProps } from 'antd';
+import { Modal, Spin, Typography, Table, Alert, Tag } from 'antd';
+import type { TableProps, TableColumnsType } from 'antd';
+import dayjs from 'dayjs';
+import localizedFormat from 'dayjs/plugin/localizedFormat';
+
+dayjs.extend(localizedFormat);
 
 const { Text } = Typography;
 
@@ -33,6 +37,29 @@ interface EntityResponse {
     link: string;
   };
   eid: string;
+}
+
+// Columns to display (filter from API response)
+const DISPLAY_COLUMNS = [
+  { key: 'sampleId', title: 'ID' },
+  { key: '1', title: 'Created Date' },
+  { key: 'Status', title: 'Status' },
+];
+
+/**
+ * Formats a date string to local format.
+ */
+function formatDate(value: unknown): string {
+  if (typeof value === 'object' && value !== null && 'auto' in value) {
+    const dateStr = (value as { auto?: string }).auto;
+    if (dateStr) {
+      return dayjs(dateStr).format('LLL');
+    }
+  }
+  if (typeof value === 'string') {
+    return dayjs(value).format('LLL');
+  }
+  return '-';
 }
 
 /**
@@ -86,7 +113,7 @@ async function fetchSampleTableContent(link: string): Promise<SampleTableData | 
 }
 
 /**
- * Sample Tools Modal component using antd Table with row selection.
+ * Sample Tools Modal component using antd Table with row selection, filter, and sort.
  */
 export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, onClose }) => {
   const [loading, setLoading] = useState(false);
@@ -136,19 +163,78 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
     },
   };
 
-  // Build table columns from cols definition
-  const columns: TableProps<RowData>['columns'] = tableData?.cols?.map((col) => ({
-    title: col.title,
-    dataIndex: col.key,
-    key: col.key,
-    render: (value: { value?: string; auto?: string } | string) => {
-      // Handle object values (e.g., sampleId: { auto: "Sample-3681", value: "sample:xxx" })
-      if (typeof value === 'object' && value !== null) {
-        return value.auto || value.value || '-';
-      }
-      return value ?? '-';
-    },
-  })) || [];
+  // Build filtered table columns with filter and sort
+  const columns: TableColumnsType<RowData> = DISPLAY_COLUMNS.map((displayCol) => {
+    const isDateColumn = displayCol.key === '1';
+    const isIdColumn = displayCol.key === 'sampleId';
+    const isStatusColumn = displayCol.key === 'Status';
+
+    return {
+      title: displayCol.title,
+      dataIndex: displayCol.key,
+      key: displayCol.key,
+      width: isStatusColumn ? 120 : undefined,
+      render: (value: unknown) => {
+        if (isDateColumn) {
+          return formatDate(value);
+        }
+        // Handle object values (e.g., sampleId: { auto: "Sample-3681", value: "sample:xxx" })
+        if (typeof value === 'object' && value !== null) {
+          const obj = value as { auto?: string; value?: string };
+          if (isStatusColumn) {
+            const status = obj.auto || obj.value || '-';
+            const color = status === 'Active' ? 'green' : status === 'Closed' ? 'red' : 'default';
+            return <Tag color={color}>{status}</Tag>;
+          }
+          return obj.auto || obj.value || '-';
+        }
+        if (isStatusColumn) {
+          const status = String(value);
+          const color = status === 'Active' ? 'green' : status === 'Closed' ? 'red' : 'default';
+          return <Tag color={color}>{status}</Tag>;
+        }
+        return value ?? '-';
+      },
+      sorter: isDateColumn
+        ? (a, b) => {
+          const aVal = a[displayCol.key];
+          const bVal = b[displayCol.key];
+          const aDate = formatDate(aVal);
+          const bDate = formatDate(bVal);
+          return aDate.localeCompare(bDate);
+        }
+        : isIdColumn || isStatusColumn
+        ? (a, b) => {
+          const getVal = (row: RowData) => {
+            const v = row[displayCol.key];
+            if (typeof v === 'object' && v !== null) {
+              return (v as { auto?: string }).auto || '';
+            }
+            return String(v || '');
+          };
+          return getVal(a).localeCompare(getVal(b));
+        }
+        : undefined,
+      filters: isStatusColumn
+        ? [
+            { text: 'Active', value: 'Active' },
+            { text: 'Closed', value: 'Closed' },
+          ]
+        : undefined,
+      onFilter: isStatusColumn
+        ? (value, record) => {
+            const v = record[displayCol.key];
+            let status = '';
+            if (typeof v === 'object' && v !== null) {
+              status = (v as { auto?: string }).auto || '';
+            } else {
+              status = String(v || '');
+            }
+            return status === value;
+          }
+        : undefined,
+    };
+  });
 
   return (
     <Modal
@@ -156,7 +242,8 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
       onCancel={onClose}
       footer={null}
       title="Sample Tools"
-      width={900}
+      width={1000}
+      style={{ top: 20 }}
       destroyOnClose
     >
       {loading ? (
@@ -173,7 +260,7 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
         <div>
           <div style={{ marginBottom: 16 }}>
             <Text type="secondary">Container EID: </Text>
-            <Text code>{eid}</Text>
+            <Text code style={{ fontSize: 12, wordBreak: 'break-all' }}>{eid}</Text>
           </div>
           <div style={{ marginBottom: 16 }}>
             <Text type="secondary">Total samples: </Text>
@@ -188,8 +275,8 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
             dataSource={tableData.rows}
             rowSelection={rowSelection}
             size="small"
-            pagination={false}
-            scroll={{ y: 400 }}
+            pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `Total ${total}` }}
+            scroll={{ y: 500 }}
           />
         </div>
       ) : null}

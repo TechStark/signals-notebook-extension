@@ -21,7 +21,7 @@ let reactRoot: ReturnType<typeof createRoot> | null = null;
 
 /**
  * Parses the samplesContainer EID from the URL's focus parameter.
- * Returns null if focus parameter doesn't match samplesContainer pattern.
+ * Returns the full EID (entityType:uuid) or null if not matching.
  */
 function parseSamplesContainerEid(): string | null {
   const params = new URLSearchParams(window.location.search);
@@ -29,7 +29,8 @@ function parseSamplesContainerEid(): string | null {
   if (!focus || !focus.startsWith(SAMPLES_CONTAINER_FOCUS_PREFIX)) {
     return null;
   }
-  return focus.slice(SAMPLES_CONTAINER_FOCUS_PREFIX.length);
+  // Return full EID format: samplesContainer:uuid
+  return focus;
 }
 
 /**
