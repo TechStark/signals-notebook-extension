@@ -243,7 +243,7 @@ function tryInjectButton(): boolean {
 
   // Create and inject button
   const btn = createSampleToolsButton();
-  headerControls.appendChild(btn);
+  headerControls.prepend(btn);
   console.log(`[SNB Extension] Sample Tools button injected for ${eid}`);
   
   // Initialize React app if not already
