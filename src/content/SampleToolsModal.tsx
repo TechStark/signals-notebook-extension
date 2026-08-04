@@ -263,7 +263,7 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
       ) : tableData ? (
         <div>
           <div style={{ marginBottom: 16 }}>
-            <Text type="secondary">Container EID: </Text>
+            <Text type="secondary">Sample Container: </Text>
             <Text code style={{ fontSize: 12, wordBreak: 'break-all' }}>{eid}</Text>
           </div>
           <div style={{ marginBottom: 16 }}>
