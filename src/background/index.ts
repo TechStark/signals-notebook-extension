@@ -49,12 +49,21 @@ async function getGrantedMatchPatterns(config: ExtensionConfig): Promise<string[
  * Dev-only hot reload: re-runs the content script in every already-open
  * matching tab instead of reloading the whole extension (which would also
  * force-navigate every tab via location.reload(), losing host page state).
- * Re-execution is safe because content/mount.ts and friends are written to
- * be idempotent — see CLAUDE.md. Note this still re-runs each module's
- * top-level side effects (version fetch, MutationObserver registration,
- * etc.) on every hot reload, so long dev sessions with many edits can
- * accumulate duplicate listeners; restart the extension occasionally if
- * that becomes visible.
+ * Re-execution is safe for plain DOM/observer setup because content/mount.ts
+ * and friends are written to be idempotent — see CLAUDE.md. It is *not*
+ * inherently safe for anything backed by a long-lived module singleton like
+ * a React root: the bundle's top-level bindings are plain `var`s sharing one
+ * global scope across executions, so re-running it immediately rebinds
+ * React/ReactDOM/etc. out from under any still-mounted tree, corrupting it
+ * on its next render ("Invalid hook call", null dispatcher errors). That's
+ * why cleanup runs first, calling back into the *old* execution's own
+ * `window.__snbExtCleanup` (see src/content/sampleEnhancement.tsx) to
+ * synchronously unmount before any of that rebinding happens.
+ *
+ * Note this still re-runs each module's other top-level side effects
+ * (version fetch, MutationObserver registration, etc.) on every hot
+ * reload, so long dev sessions with many edits can accumulate duplicate
+ * listeners; restart the extension occasionally if that becomes visible.
  */
 async function reinjectContentScript(): Promise<void> {
   const matches = await getGrantedMatchPatterns(await getConfig());
@@ -65,6 +74,10 @@ async function reinjectContentScript(): Promise<void> {
     tabs.map(async (tab) => {
       if (tab.id === undefined) return;
       try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => (window as unknown as { __snbExtCleanup?: () => Promise<void> }).__snbExtCleanup?.(),
+        });
         await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [CONTENT_SCRIPT_FILE] });
         console.log(`[SNB Extension] Hot-reloaded content script in tab ${tab.id}`);
       } catch (e) {

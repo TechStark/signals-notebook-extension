@@ -43,19 +43,29 @@ const SampleToolsApp: React.FC<{ eid: string }> = ({ eid }) => {
     setOpen(true);
   }, []);
 
-  // Expose open function globally
+  const handleClose = React.useCallback(() => {
+    setOpen(false);
+  }, []);
+
+  // Expose open/close globally so the toolbar button (plain DOM, outside
+  // this tree) can drive it, and so dev-only hot reload cleanup (see
+  // registerHotReloadCleanup below) can close the Modal before tearing the
+  // whole root down.
   React.useEffect(() => {
-    (window as unknown as { __snbExtOpenModal: () => void }).__snbExtOpenModal = handleOpen;
+    const win = window as unknown as { __snbExtOpenModal?: () => void; __snbExtCloseModal?: () => void };
+    win.__snbExtOpenModal = handleOpen;
+    win.__snbExtCloseModal = handleClose;
     return () => {
-      delete (window as unknown as { __snbExtOpenModal?: () => void }).__snbExtOpenModal;
+      delete win.__snbExtOpenModal;
+      delete win.__snbExtCloseModal;
     };
-  }, [handleOpen]);
+  }, [handleOpen, handleClose]);
 
   return (
     <SampleToolsModal
       open={open}
       eid={eid}
-      onClose={() => setOpen(false)}
+      onClose={handleClose}
     />
   );
 };
@@ -85,6 +95,8 @@ function renderReactApp(eid: string): void {
     reactRoot = createRoot(root);
   }
   
+  registerHotReloadCleanup();
+
   reactRoot.render(
     <React.StrictMode>
       <ConfigProvider>
@@ -94,6 +106,52 @@ function renderReactApp(eid: string): void {
       </ConfigProvider>
     </React.StrictMode>
   );
+}
+
+/**
+ * Exposes a cleanup hook on `window` so a later re-injection of this
+ * content script (see src/background/index.ts's dev-only hot reload) can
+ * properly tear this React root down *before* the new script's top-level
+ * re-declarations run.
+ *
+ * This matters because the bundle's module bindings (React, ReactDOM, the
+ * scheduler, ...) are plain top-level `var`s, not real per-execution ES
+ * module scopes — re-running the bundle in the same isolated world
+ * immediately reassigns those globals to a brand new, never-rendered copy.
+ * If this root is still mounted when that happens, its next re-render
+ * calls hooks against that fresh copy's (unset) dispatcher and crashes
+ * with "Invalid hook call" / "Cannot read properties of null (reading
+ * 'useCallback')". Synchronously unmounting first, using the *old* (still
+ * intact) React copy, avoids that entirely.
+ */
+function registerHotReloadCleanup(): void {
+  const win = window as unknown as {
+    __snbExtCleanup?: () => Promise<void>;
+    __snbExtOpenModal?: () => void;
+    __snbExtCloseModal?: () => void;
+  };
+  win.__snbExtCleanup = async () => {
+    try {
+      // Close the Modal through its normal state-driven path first and let
+      // its exit transition finish — force-unmounting straight through
+      // root.unmount() while an antd Modal/Portal is open reliably crashes
+      // with "Invalid hook call" while React processes deletion effects for
+      // the open Portal (an antd/rc-dialog issue with synchronously tearing
+      // down an open Portal's fiber subtree, not the classic "two copies of
+      // React" cause that error usually points to).
+      win.__snbExtCloseModal?.();
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      reactRoot?.unmount();
+    } catch (e) {
+      console.warn('[SNB Extension] Error unmounting previous React root during hot reload cleanup:', e);
+    } finally {
+      document.getElementById(REACT_ROOT_ID)?.remove();
+      document.getElementById(BUTTON_ID)?.remove();
+      delete win.__snbExtOpenModal;
+      delete win.__snbExtCloseModal;
+      delete win.__snbExtCleanup;
+    }
+  };
 }
 
 /**
