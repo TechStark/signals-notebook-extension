@@ -6,11 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 pnpm install
-pnpm dev     # vite dev server, builds to dist/ in watch mode
-pnpm build   # tsc --noEmit then vite build
+pnpm dev        # vite dev server, builds to dist/ in watch mode
+pnpm build      # tsc --noEmit then vite build
+pnpm test       # vitest run (CI runs this before build)
+pnpm test:watch # vitest watch mode
 ```
 
-There is no lint, format, or test setup yet. Don't invent commands for them.
+There is no lint or format setup yet. Don't invent commands for them. Test coverage is currently limited to `src/content/version.test.ts`; add specs alongside the module they cover and keep using `*.test.ts`/`*.spec.ts` (see `vitest.config.ts`).
 
 Load the extension in Chrome via `chrome://extensions` → enable Developer mode → "Load unpacked" → select `dist/`. After loading, open the extension's options page and add at least one Signals Notebook host to grant access — without this, the content/injected scripts never run.
 
@@ -50,6 +52,8 @@ Cross-context imports must go through `@shared/*` (aliased to `src/shared`) — 
 
 `vite.plugins/dynamic-scripts.ts` bundles `src/content` and `src/injected` standalone via esbuild, emitting to a fixed path (`dist/src/<name>/index.js`) that `src/background/index.ts` references by string literal. This exists because `@crxjs/vite-plugin` only processes scripts declared in `manifest.content_scripts`; routing these two through it (or through `build.rollupOptions.input`) fails to resolve the `@shared` alias in dev mode specifically — production `vite build` masked the bug by taking a different internal path. If you touch this plugin, verify both `pnpm dev` and `pnpm build` produce working `dist/src/content/index.js` and `dist/src/injected/index.js`, not just one.
 
+`vite.config.ts` doesn't add the `server.cors.origin: [/chrome-extension:\/\//]` block shown in CRXJS's "from scratch" guide — `@crxjs/vite-plugin@2.7.1` already registers an internal `crx:extension-cors` plugin that does this automatically for `chrome-extension://` and `moz-extension://` origins in serve mode. Don't add it back; it would just duplicate what the plugin already does.
+
 ### UI stack: React + antd, but only in popup/options
 
-`@vitejs/plugin-react` is pinned to `^5.2.0`, not the newer 6.x line — 6.x requires Vite 8 as a peer, and this project is on Vite 7. Don't bump it without also bumping Vite. antd v6 uses CSS-in-JS (no separate stylesheet import needed); `ConfigProvider` wraps each page's root, and `OptionsApp.tsx` additionally wraps in antd's `App` component to get access to `message`/`notification` via `App.useApp()`. If a future enhancement needs UI inside `content/` (i.e. rendered into the page), don't reflexively reuse React/antd there — that's a separate decision (bundle size and Shadow DOM style-injection behavior differ) and hasn't been made yet.
+Currently on `@vitejs/plugin-react@^6.0.5` with `vite@^8.2.0` (6.x requires Vite 8 as a peer — keep them paired if you bump either). antd v6 uses CSS-in-JS (no separate stylesheet import needed); `ConfigProvider` wraps each page's root, and `OptionsApp.tsx` additionally wraps in antd's `App` component to get access to `message`/`notification` via `App.useApp()`. If a future enhancement needs UI inside `content/` (i.e. rendered into the page), don't reflexively reuse React/antd there — that's a separate decision (bundle size and Shadow DOM style-injection behavior differ) and hasn't been made yet.
