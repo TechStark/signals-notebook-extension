@@ -17,7 +17,7 @@ const SCRIPTS = {
  * output path (dist/src/<name>/index.js) that matches what the background
  * worker references by string.
  */
-export function dynamicScripts(): Plugin {
+export function dynamicScripts(options: { onRebuild?: () => void } = {}): Plugin {
   let config: ResolvedConfig;
 
   const build = async (outdir: string) => {
@@ -58,14 +58,14 @@ export function dynamicScripts(): Plugin {
         tracked = new Set(inputs);
         syncWatcher(tracked);
 
-        // @crxjs/vite-plugin only sends its `crx:runtime-reload` HMR signal
-        // for files it tracks via Vite's module graph (background +
-        // manifest.content_scripts). Since content/injected are built out of
-        // band by esbuild above, crx never sees this change and the
-        // extension never reloads on its own. Send the same payload crx
-        // itself uses so its background/content HMR clients pick it up and
-        // call chrome.runtime.reload().
-        server.ws.send({ type: 'custom', event: 'crx:runtime-reload' });
+        // @crxjs/vite-plugin only knows how to reload scripts it tracks via
+        // Vite's module graph (background + manifest.content_scripts).
+        // Since content/injected are built out of band by esbuild above, crx
+        // never sees this change and never reloads anything on its own —
+        // `onRebuild` (see vite.plugins/content-dev-reload.ts) is how the
+        // background worker learns the new bundle is ready so it can
+        // re-inject it into open tabs without a full extension/page reload.
+        options.onRebuild?.();
       });
     },
   };

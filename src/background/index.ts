@@ -1,7 +1,9 @@
 import { getConfig, hostToMatchPattern, onConfigChanged, type ExtensionConfig } from '@shared/config';
 import type { RuntimeMessage } from '@shared/messaging';
+import { CONTENT_RELOAD_URL } from 'virtual:snb-content-dev-reload';
 
 const CONTENT_SCRIPT_ID = 'snb-content';
+const CONTENT_SCRIPT_FILE = 'src/content/index.js';
 
 /**
  * (Re)registers the dynamic content script against every configured SNB
@@ -16,21 +18,85 @@ async function syncContentScriptRegistration(config: ExtensionConfig): Promise<v
     await chrome.scripting.unregisterContentScripts({ ids: [CONTENT_SCRIPT_ID] });
   }
 
-  const candidateMatches = config.snbHosts.map(hostToMatchPattern);
-  const matches = [];
-  for (const pattern of candidateMatches) {
-    if (await chrome.permissions.contains({ origins: [pattern] })) matches.push(pattern);
-  }
+  const matches = await getGrantedMatchPatterns(config);
   if (matches.length === 0) return;
 
   await chrome.scripting.registerContentScripts([
     {
       id: CONTENT_SCRIPT_ID,
       matches,
-      js: ['src/content/index.js'],
+      js: [CONTENT_SCRIPT_FILE],
       runAt: 'document_idle',
     },
   ]);
+}
+
+/**
+ * Grants access to the same match patterns syncContentScriptRegistration()
+ * just registered against, i.e. every configured host with a granted
+ * permission.
+ */
+async function getGrantedMatchPatterns(config: ExtensionConfig): Promise<string[]> {
+  const matches: string[] = [];
+  for (const host of config.snbHosts) {
+    const pattern = hostToMatchPattern(host);
+    if (await chrome.permissions.contains({ origins: [pattern] })) matches.push(pattern);
+  }
+  return matches;
+}
+
+/**
+ * Dev-only hot reload: re-runs the content script in every already-open
+ * matching tab instead of reloading the whole extension (which would also
+ * force-navigate every tab via location.reload(), losing host page state).
+ * Re-execution is safe because content/mount.ts and friends are written to
+ * be idempotent — see CLAUDE.md. Note this still re-runs each module's
+ * top-level side effects (version fetch, MutationObserver registration,
+ * etc.) on every hot reload, so long dev sessions with many edits can
+ * accumulate duplicate listeners; restart the extension occasionally if
+ * that becomes visible.
+ */
+async function reinjectContentScript(): Promise<void> {
+  const matches = await getGrantedMatchPatterns(await getConfig());
+  if (matches.length === 0) return;
+
+  const tabs = await chrome.tabs.query({ url: matches });
+  await Promise.all(
+    tabs.map(async (tab) => {
+      if (tab.id === undefined) return;
+      try {
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [CONTENT_SCRIPT_FILE] });
+        console.log(`[SNB Extension] Hot-reloaded content script in tab ${tab.id}`);
+      } catch (e) {
+        console.error(`[SNB Extension] Failed to hot-reload content script in tab ${tab.id}:`, e);
+      }
+    }),
+  );
+}
+
+/**
+ * Long-polls the dev server for content/injected rebuilds and hot-reloads
+ * open tabs in response. Fully dead-code-eliminated in production builds:
+ * `import.meta.env.DEV` is statically replaced with `false`, so this
+ * function is never called there (the `CONTENT_RELOAD_URL` import above
+ * resolves to a harmless empty string outside `vite dev` — see
+ * vite.plugins/content-dev-reload.ts — since service workers can't use
+ * dynamic `import()` to defer loading it).
+ */
+async function startContentDevReloadLoop(): Promise<void> {
+  while (true) {
+    try {
+      const res = await fetch(CONTENT_RELOAD_URL);
+      if (res.status === 200) await reinjectContentScript();
+    } catch (e) {
+      console.warn('[SNB Extension] Content dev-reload poll failed, retrying:', e);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+  }
+}
+
+if (import.meta.env.DEV) {
+  void startContentDevReloadLoop();
 }
 
 chrome.runtime.onInstalled.addListener(async () => {
