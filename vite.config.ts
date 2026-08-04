@@ -2,9 +2,9 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { crx } from '@crxjs/vite-plugin';
-import manifest from './manifest.config.ts';
-import { dynamicScripts } from './vite.plugins/dynamic-scripts.ts';
-import { contentDevReload } from './vite.plugins/content-dev-reload.ts';
+import manifest from './manifest.config.js';
+import { dynamicScripts } from './vite.plugins/dynamic-scripts.js';
+import { contentDevReload } from './vite.plugins/content-dev-reload.js';
 
 const { plugin: contentDevReloadPlugin, notifyContentChanged } = contentDevReload();
 
