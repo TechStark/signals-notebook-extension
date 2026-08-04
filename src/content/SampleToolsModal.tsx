@@ -219,6 +219,7 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
         ? [
             { text: 'Active', value: 'Active' },
             { text: 'Closed', value: 'Closed' },
+            { text: 'Cancelled', value: 'Cancelled' },
           ]
         : undefined,
       onFilter: isStatusColumn
