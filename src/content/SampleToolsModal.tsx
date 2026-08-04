@@ -73,7 +73,8 @@ function formatDate(value: unknown): string {
 
 const STATUS_COLORS: Record<string, string> = {
   Active: 'green',
-  Closed: 'red',
+  Closed: 'gray',
+  Cancelled: 'orange',
 };
 
 function getStatusColor(status: string): string {
