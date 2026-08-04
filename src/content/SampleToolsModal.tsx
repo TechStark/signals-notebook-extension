@@ -279,7 +279,7 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
             dataSource={tableData.rows}
             rowSelection={rowSelection}
             size="small"
-            pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `Total ${total}` }}
+            pagination={{ pageSize: 20, showSizeChanger: true }}
             scroll={{ y: 500 }}
           />
         </div>
