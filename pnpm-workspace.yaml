@@ -1,2 +1,4 @@
 allowBuilds:
   esbuild: true
+patchedDependencies:
+  '@crxjs/vite-plugin': patches/@crxjs__vite-plugin.patch

@@ -57,6 +57,15 @@ export function dynamicScripts(): Plugin {
         const inputs = await build(config.build.outDir);
         tracked = new Set(inputs);
         syncWatcher(tracked);
+
+        // @crxjs/vite-plugin only sends its `crx:runtime-reload` HMR signal
+        // for files it tracks via Vite's module graph (background +
+        // manifest.content_scripts). Since content/injected are built out of
+        // band by esbuild above, crx never sees this change and the
+        // extension never reloads on its own. Send the same payload crx
+        // itself uses so its background/content HMR clients pick it up and
+        // call chrome.runtime.reload().
+        server.ws.send({ type: 'custom', event: 'crx:runtime-reload' });
       });
     },
   };
