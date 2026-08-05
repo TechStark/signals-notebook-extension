@@ -149,16 +149,14 @@ async function fetchSampleTableContent(link: string): Promise<SampleTableData | 
   }
 }
 
-async function fetchSampleProperties(eid: string): Promise<SampleProperty[]> {
+async function fetchSampleProperties(): Promise<SampleProperty[]> {
   try {
     const baseUrl = window.location.origin;
-    // Placeholder API endpoint - adjust when actual API is known
-    const response = await fetch(`${baseUrl}/api/v1.0/samples/${eid}/properties`, {
+    const response = await fetch(`${baseUrl}/api/v1.0/samples/property-types`, {
       credentials: 'include',
       headers: { Accept: 'application/json' },
     });
     if (!response.ok) {
-      // Fallback: use cols from tableData if properties API not available
       return [];
     }
     const data = await response.json();
@@ -209,7 +207,7 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
           if (!entity?.data?.link) return null;
           return fetchSampleTableContent(entity.data.link);
         }),
-        fetchSampleProperties(eid),
+        fetchSampleProperties(),
       ])
         .then(([tableResult, props]) => {
           if (tableResult) {
