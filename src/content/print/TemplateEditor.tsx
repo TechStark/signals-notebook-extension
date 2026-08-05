@@ -85,7 +85,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
         style={{ width: 200, overflow: 'auto' }}
         styles={{ body: { padding: 8 } }}
       >
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           {properties.map((prop) => (
             <div
               key={prop.key}
@@ -248,7 +248,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
         styles={{ body: { padding: 8 } }}
       >
         {selectedElement ? (
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
             <Button
               danger
               size="small"
@@ -306,7 +306,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 
             {selectedElement.type === 'field' && (
               <>
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <Text>Property:</Text>
                   <Select
                     value={selectedElement.propertyName}
@@ -325,7 +325,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
             )}
 
             {(selectedElement.type === 'qrCode' || selectedElement.type === 'barcode') && (
-              <Space direction="vertical" style={{ width: '100%' }}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
                 <Text>Content Template:</Text>
                 <Input
                   value={(selectedElement as { contentTemplate: string }).contentTemplate}
@@ -337,7 +337,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
             )}
 
             {selectedElement.type === 'staticText' && (
-              <Space direction="vertical" style={{ width: '100%' }}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
                 <Text>Content:</Text>
                 <Input
                   value={selectedElement.content}
@@ -385,7 +385,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
             )}
           </Space>
         ) : (
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
             <Text type="secondary">Add new element:</Text>
             <Button block size="small" onClick={() => addElement('field', 0, 0)}>
               + Field
