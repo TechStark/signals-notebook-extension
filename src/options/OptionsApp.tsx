@@ -10,7 +10,7 @@ function HostList({ hosts, onRemove }: { hosts: string[]; onRemove: (host: strin
       bordered
       dataSource={hosts}
       renderItem={(host) => (
-        <List.Item actions={[<Button key="remove" danger type="link" onClick={() => onRemove(host)}>Remove</Button>]}>
+        <List.Item actions={[<Button key="remove" danger variant="link" onClick={() => onRemove(host)}>Remove</Button>]}>
           {host}
         </List.Item>
       )}

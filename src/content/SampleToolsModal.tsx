@@ -389,7 +389,7 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
                 />
               </div>
               <Button
-                type="link"
+                type="default"
                 icon={<EditOutlined />}
                 onClick={() => setEditMode(true)}
               >

@@ -83,7 +83,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
       <Card
         title="Available Fields"
         style={{ width: 200, overflow: 'auto' }}
-        bodyStyle={{ padding: 8 }}
+        styles={{ body: { padding: 8 } }}
       >
         <Space direction="vertical" style={{ width: '100%' }}>
           {properties.map((prop) => (
@@ -245,7 +245,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
       <Card
         title={selectedElement ? 'Element Properties' : 'Add Element'}
         style={{ width: 250 }}
-        bodyStyle={{ padding: 8 }}
+        styles={{ body: { padding: 8 } }}
       >
         {selectedElement ? (
           <Space direction="vertical" style={{ width: '100%' }}>
