@@ -20,9 +20,9 @@ function createDefaultElement(type: ElementType, row: number, col: number): Temp
     case 'field':
       return { ...base, type: 'field', propertyName: '', propertyType: '' };
     case 'qrCode':
-      return { ...base, type: 'qrCode', contentTemplate: '{Sample ID}' };
+      return { ...base, type: 'qrCode', contentTemplate: '{ID}' };
     case 'barcode':
-      return { ...base, type: 'barcode', contentTemplate: '{Sample ID}' };
+      return { ...base, type: 'barcode', contentTemplate: '{ID}' };
     case 'staticText':
       return { ...base, type: 'staticText', content: 'Label' };
   }
@@ -330,7 +330,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
                 <Input
                   value={(selectedElement as { contentTemplate: string }).contentTemplate}
                   onChange={(e) => updateElement(selectedElementIndex!, { contentTemplate: e.target.value } as TemplateElement)}
-                  placeholder="{Sample ID}"
+                  placeholder="{ID}"
                   size="small"
                 />
               </Space>
