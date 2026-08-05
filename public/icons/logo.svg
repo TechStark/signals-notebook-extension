@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <!-- Background circle with subtle gradient effect -->
+  <circle cx="64" cy="64" r="60" fill="#148087"/>
+  
+  <!-- Inner highlight ring -->
+  <circle cx="64" cy="64" r="54" stroke="#3DD4CC" stroke-width="3" fill="none" opacity="0.6"/>
+  
+  <!-- Abstract "S" curve inspired by original logo - main element -->
+  <path d="M40 48C40 38 50 30 64 30C78 30 88 38 88 48C88 58 78 58 64 58C50 58 40 58 40 68C40 78 50 90 64 90C78 90 88 80 88 68" 
+        stroke="white" stroke-width="8" stroke-linecap="round" fill="none"/>
+  
+  <!-- Small accent dot suggesting "connection/extension" -->
+  <circle cx="88" cy="48" r="6" fill="#3DD4CC"/>
+  <circle cx="40" cy="68" r="6" fill="#3DD4CC"/>
+</svg>
