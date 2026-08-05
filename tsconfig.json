@@ -16,7 +16,8 @@
     "noEmit": true,
     "types": ["chrome", "node"],
     "paths": {
-      "@shared/*": ["./src/shared/*"]
+      "@shared/*": ["./src/shared/*"],
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src", "manifest.config.ts", "vite.config.ts", "vite.plugins"]

@@ -1,3 +1,5 @@
+import type { LabelTemplates } from './printTypes';
+
 /** Extension-wide settings persisted in chrome.storage.sync. */
 export interface ExtensionConfig {
   /**
@@ -11,6 +13,11 @@ const STORAGE_KEY = 'config';
 
 const DEFAULT_CONFIG: ExtensionConfig = {
   snbHosts: [],
+};
+
+const TEMPLATES_KEY = 'printTemplates';
+const DEFAULT_TEMPLATES: LabelTemplates = {
+  templates: [],
 };
 
 /** A host label is alphanumeric/hyphen segments separated by dots; the leftmost segment may be a literal "*". */
@@ -41,4 +48,25 @@ export function onConfigChanged(callback: (config: ExtensionConfig) => void): vo
 /** Derives a match pattern (e.g. "https://*.host.com/*") from a configured host. */
 export function hostToMatchPattern(host: string): string {
   return `https://${host}/*`;
+}
+
+/** Retrieves the label templates from storage. */
+export async function getLabelTemplates(): Promise<LabelTemplates> {
+  const stored = await chrome.storage.sync.get(TEMPLATES_KEY);
+  const storedTemplates = stored[TEMPLATES_KEY] as LabelTemplates | undefined;
+  return { ...DEFAULT_TEMPLATES, ...storedTemplates };
+}
+
+/** Saves the label templates to storage. */
+export async function setLabelTemplates(templates: LabelTemplates): Promise<void> {
+  await chrome.storage.sync.set({ [TEMPLATES_KEY]: templates });
+}
+
+/** Listens for changes to label templates. */
+export function onTemplatesChanged(callback: (templates: LabelTemplates) => void): void {
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'sync' || !changes[TEMPLATES_KEY]) return;
+    const newValue = changes[TEMPLATES_KEY].newValue as LabelTemplates | undefined;
+    callback({ ...DEFAULT_TEMPLATES, ...newValue });
+  });
 }

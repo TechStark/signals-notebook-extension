@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Spin, Typography, Table, Alert, Tag } from 'antd';
+import { Modal, Spin, Typography, Table, Alert, Tag, Button, Divider } from 'antd';
+import { PrinterOutlined, EditOutlined } from '@ant-design/icons';
 import type { TableProps, TableColumnsType } from 'antd';
 import dayjs from 'dayjs';
 import localizedFormat from 'dayjs/plugin/localizedFormat';
+import type { LabelTemplate, LabelTemplates, SampleProperty } from '@shared/printTypes';
+import { getLabelTemplates, setLabelTemplates } from '@shared/config';
+import { LabelPreview, printLabels, TemplateEditor, TemplateList, createNewTemplate } from './print';
 
 dayjs.extend(localizedFormat);
 
@@ -39,11 +43,6 @@ interface EntityResponse {
   eid: string;
 }
 
-/**
- * Extracts a display label from a cell value.
- * API values can be either a plain scalar, or an object shaped like
- * `{ auto?: string; value?: string }`.
- */
 function extractLabel(value: unknown): string {
   if (typeof value === 'object' && value !== null) {
     const obj = value as { auto?: string; value?: string };
@@ -55,9 +54,6 @@ function extractLabel(value: unknown): string {
   return String(value);
 }
 
-/**
- * Formats a date-like cell value to local format.
- */
 function formatDate(value: unknown): string {
   if (typeof value === 'object' && value !== null && 'auto' in value) {
     const dateStr = (value as { auto?: string }).auto;
@@ -81,12 +77,10 @@ function getStatusColor(status: string): string {
   return STATUS_COLORS[status] ?? 'default';
 }
 
-/** Sorter that compares two rows by a string label extracted from `key`. */
 function labelSorter(key: string, extractor: (value: unknown) => string = extractLabel) {
   return (a: RowData, b: RowData) => extractor(a[key]).localeCompare(extractor(b[key]));
 }
 
-/** Column for plain text/id values, rendered and sorted as extracted labels. */
 function createTextColumn(key: string, title: string): TableColumnsType<RowData>[number] {
   return {
     title,
@@ -97,7 +91,6 @@ function createTextColumn(key: string, title: string): TableColumnsType<RowData>
   };
 }
 
-/** Column for date values, rendered via `formatDate` and sorted chronologically. */
 function createDateColumn(key: string, title: string): TableColumnsType<RowData>[number] {
   return {
     title,
@@ -108,7 +101,6 @@ function createDateColumn(key: string, title: string): TableColumnsType<RowData>
   };
 }
 
-/** Column for status values, rendered as a colored Tag with filter support. */
 function createStatusColumn(
   key: string,
   title: string,
@@ -129,57 +121,53 @@ function createStatusColumn(
   };
 }
 
-/**
- * Fetches entity data to get the content link.
- */
 async function fetchEntity(eid: string): Promise<EntityResponse | null> {
   try {
     const baseUrl = window.location.origin;
     const response = await fetch(`${baseUrl}/api/v1.0/entities/${eid}`, {
       credentials: 'include',
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers: { Accept: 'application/json' },
     });
-
-    if (!response.ok) {
-      console.error(`[SNB Extension] Entity API error: ${response.status}`);
-      return null;
-    }
-
+    if (!response.ok) return null;
     return await response.json();
-  } catch (e) {
-    console.error('[SNB Extension] Error fetching entity:', e);
+  } catch {
     return null;
   }
 }
 
-/**
- * Fetches sample table content from the link.
- */
 async function fetchSampleTableContent(link: string): Promise<SampleTableData | null> {
   try {
     const baseUrl = window.location.origin;
     const response = await fetch(`${baseUrl}${link}`, {
       credentials: 'include',
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers: { Accept: 'application/json' },
     });
-
-    if (!response.ok) {
-      console.error(`[SNB Extension] Content API error: ${response.status}`);
-      return null;
-    }
-
+    if (!response.ok) return null;
     return await response.json();
-  } catch (e) {
-    console.error('[SNB Extension] Error fetching sample table:', e);
+  } catch {
     return null;
   }
 }
 
-// Columns to display, in order, built via the per-type factories above.
+async function fetchSampleProperties(eid: string): Promise<SampleProperty[]> {
+  try {
+    const baseUrl = window.location.origin;
+    // Placeholder API endpoint - adjust when actual API is known
+    const response = await fetch(`${baseUrl}/api/v1.0/samples/${eid}/properties`, {
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) {
+      // Fallback: use cols from tableData if properties API not available
+      return [];
+    }
+    const data = await response.json();
+    return data.properties || [];
+  } catch {
+    return [];
+  }
+}
+
 function buildColumns(): TableColumnsType<RowData> {
   return [
     createTextColumn('sampleId', 'ID'),
@@ -188,14 +176,17 @@ function buildColumns(): TableColumnsType<RowData> {
   ];
 }
 
-/**
- * Sample Tools Modal component using antd Table with row selection, filter, and sort.
- */
 export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [tableData, setTableData] = useState<SampleTableData | null>(null);
+  const [properties, setProperties] = useState<SampleProperty[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+
+  // Template state
+  const [templates, setTemplates] = useState<LabelTemplates>({ templates: [] });
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [editMode, setEditMode] = useState(false);
 
   useEffect(() => {
     if (open && eid) {
@@ -204,42 +195,142 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
       setTableData(null);
       setSelectedRowKeys([]);
 
-      // Step 1: Fetch entity to get link
-      fetchEntity(eid)
-        .then((entity) => {
-          if (!entity?.data?.link) {
-            setError('Failed to get entity link');
-            return null;
-          }
-          // Step 2: Fetch sample table content
+      // Load templates
+      getLabelTemplates().then((t) => {
+        setTemplates(t);
+        if (t.templates.length > 0 && !selectedTemplateId) {
+          setSelectedTemplateId(t.templates[0].id);
+        }
+      });
+
+      // Load data
+      Promise.all([
+        fetchEntity(eid).then((entity) => {
+          if (!entity?.data?.link) return null;
           return fetchSampleTableContent(entity.data.link);
-        })
-        .then((result) => {
-          if (result) {
-            setTableData(result);
-          } else if (!error) {
+        }),
+        fetchSampleProperties(eid),
+      ])
+        .then(([tableResult, props]) => {
+          if (tableResult) {
+            setTableData(tableResult);
+            // Use table cols as fallback for properties
+            if (props.length === 0 && tableResult.cols) {
+              setProperties(
+                tableResult.cols.map((col) => ({
+                  key: col.key,
+                  name: col.title,
+                  type: col.type,
+                })),
+              );
+            } else {
+              setProperties(props);
+            }
+          } else {
             setError('Failed to load sample table');
           }
         })
-        .catch(() => {
-          setError('Failed to load data');
-        })
-        .finally(() => {
-          setLoading(false);
-        });
+        .catch(() => setError('Failed to load data'))
+        .finally(() => setLoading(false));
     }
   }, [open, eid]);
 
-  // Define row selection (for future operations)
-  const rowSelection: TableProps<RowData>['rowSelection'] = {
-    selectedRowKeys,
-    onChange: (keys) => {
-      setSelectedRowKeys(keys);
-      console.log('[SNB Extension] Selected samples:', keys);
-    },
+  const selectedTemplate = templates.templates.find((t) => t.id === selectedTemplateId);
+  const selectedSamples = tableData?.rows.filter((row) => selectedRowKeys.includes(row.eid)) || [];
+
+  const handlePrint = async () => {
+    if (!selectedTemplate || selectedSamples.length === 0) return;
+    await printLabels({
+      template: selectedTemplate,
+      samples: selectedSamples,
+      properties,
+    });
   };
 
-  const columns = buildColumns();
+  const handleTemplateChange = (updated: LabelTemplate) => {
+    const newTemplates = templates.templates.map((t) =>
+      t.id === updated.id ? updated : t,
+    );
+    const newLabelTemplates = { templates: newTemplates };
+    setTemplates(newLabelTemplates);
+    setLabelTemplates(newLabelTemplates);
+  };
+
+  const handleAddTemplate = () => {
+    if (templates.templates.length >= 5) return;
+    const newTemplate = createNewTemplate();
+    const newLabelTemplates = { templates: [...templates.templates, newTemplate] };
+    setTemplates(newLabelTemplates);
+    setLabelTemplates(newLabelTemplates);
+    setSelectedTemplateId(newTemplate.id);
+  };
+
+  const handleDeleteTemplate = (id: string) => {
+    const newTemplates = templates.templates.filter((t) => t.id !== id);
+    const newLabelTemplates = { templates: newTemplates };
+    setTemplates(newLabelTemplates);
+    setLabelTemplates(newLabelTemplates);
+    if (selectedTemplateId === id && newTemplates.length > 0) {
+      setSelectedTemplateId(newTemplates[0].id);
+    }
+  };
+
+  const handleDuplicateTemplate = (id: string) => {
+    if (templates.templates.length >= 5) return;
+    const original = templates.templates.find((t) => t.id === id);
+    if (!original) return;
+    const duplicate: LabelTemplate = {
+      ...original,
+      id: `tpl-${Date.now()}`,
+      name: `${original.name} (copy)`,
+    };
+    const newLabelTemplates = { templates: [...templates.templates, duplicate] };
+    setTemplates(newLabelTemplates);
+    setLabelTemplates(newLabelTemplates);
+    setSelectedTemplateId(duplicate.id);
+  };
+
+  const handleRenameTemplate = (id: string, name: string) => {
+    const newTemplates = templates.templates.map((t) =>
+      t.id === id ? { ...t, name } : t,
+    );
+    const newLabelTemplates = { templates: newTemplates };
+    setTemplates(newLabelTemplates);
+    setLabelTemplates(newLabelTemplates);
+  };
+
+  const handleReorderTemplates = (newTemplates: LabelTemplate[]) => {
+    const newLabelTemplates = { templates: newTemplates };
+    setTemplates(newLabelTemplates);
+    setLabelTemplates(newLabelTemplates);
+  };
+
+  const rowSelection: TableProps<RowData>['rowSelection'] = {
+    selectedRowKeys,
+    onChange: (keys) => setSelectedRowKeys(keys),
+  };
+
+  // Edit mode: full-screen template editor
+  if (editMode && selectedTemplate) {
+    return (
+      <Modal
+        open={open}
+        onCancel={() => setEditMode(false)}
+        footer={null}
+        title="Edit Template"
+        width="100vw"
+        style={{ top: 0, paddingBottom: 0, maxWidth: '100vw' }}
+        styles={{ body: { height: 'calc(100vh - 110px)', overflow: 'auto' } }}
+        destroyOnHidden
+      >
+        <TemplateEditor
+          template={selectedTemplate}
+          properties={properties}
+          onChange={handleTemplateChange}
+        />
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -267,6 +358,51 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
             <Text type="secondary">Sample Container: </Text>
             <Text code style={{ fontSize: 12, wordBreak: 'break-all' }}>{eid}</Text>
           </div>
+
+          {/* Template Selection */}
+          <div style={{ marginBottom: 16 }}>
+            <TemplateList
+              templates={templates.templates}
+              selectedId={selectedTemplateId}
+              onSelect={setSelectedTemplateId}
+              onAdd={handleAddTemplate}
+              onDelete={handleDeleteTemplate}
+              onDuplicate={handleDuplicateTemplate}
+              onRename={handleRenameTemplate}
+              onReorder={handleReorderTemplates}
+            />
+          </div>
+
+          {/* Template Preview */}
+          {selectedTemplate && (
+            <div style={{ marginBottom: 16 }}>
+              <div
+                style={{
+                  padding: 16,
+                  background: '#fafafa',
+                  borderRadius: 8,
+                  display: 'inline-block',
+                }}
+              >
+                <LabelPreview
+                  template={selectedTemplate}
+                  sampleData={tableData.rows[0] || {}}
+                  properties={properties}
+                />
+              </div>
+              <Button
+                type="link"
+                icon={<EditOutlined />}
+                onClick={() => setEditMode(true)}
+              >
+                Edit Template
+              </Button>
+            </div>
+          )}
+
+          <Divider />
+
+          {/* Sample Table */}
           <div style={{ marginBottom: 16 }}>
             <Text type="secondary">Total samples: </Text>
             <Text strong>{tableData.rows?.length || 0}</Text>
@@ -274,15 +410,28 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
               <Text type="secondary"> ({selectedRowKeys.length} selected)</Text>
             )}
           </div>
+
           <Table
             rowKey="eid"
-            columns={columns}
+            columns={buildColumns()}
             dataSource={tableData.rows}
             rowSelection={rowSelection}
             size="small"
             pagination={{ pageSize: 20, showSizeChanger: true }}
             scroll={{ y: 500 }}
           />
+
+          {/* Print Button */}
+          <div style={{ marginTop: 16, textAlign: 'right' }}>
+            <Button
+              type="primary"
+              icon={<PrinterOutlined />}
+              onClick={handlePrint}
+              disabled={selectedRowKeys.length === 0 || !selectedTemplate}
+            >
+              Print Labels ({selectedRowKeys.length})
+            </Button>
+          </div>
         </div>
       ) : null}
     </Modal>
