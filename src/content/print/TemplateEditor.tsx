@@ -38,10 +38,10 @@ const ContentPartsEditor: React.FC<ContentPartsEditorProps> = ({
   };
 
   return (
-    <Space direction="vertical" style={{ width: '100%' }}>
+    <Space orientation="vertical" style={{ width: '100%' }}>
       {parts.map((part, index) => (
         <Card key={index} size="small" style={{ marginBottom: 4 }}>
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
             <Space style={{ width: '100%', justifyContent: 'space-between' }}>
               <Select
                 value={part.type}
@@ -74,7 +74,7 @@ const ContentPartsEditor: React.FC<ContentPartsEditorProps> = ({
                 size="small"
               />
             ) : (
-              <Space direction="vertical" style={{ width: '100%' }}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
                 <Select
                   value={part.source}
                   onChange={(v) => updatePart(index, { source: v as DataSource, fieldName: '', dateFormat: undefined })}
@@ -572,7 +572,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
             {/* Content - Field */}
             {selectedElement.type === 'field' && (
               <Card size="small" title="Content">
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <div><Text>Source:</Text></div>
                   <Select
                     value={selectedElement.source}
@@ -661,7 +661,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
             {/* Style */}
             {(selectedElement.type === 'field' || selectedElement.type === 'staticText') && (
               <Card size="small" title="Style">
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <div><Text>Font Size:</Text></div>
                   <Space.Compact style={{ width: '100%' }}>
                     <InputNumber
