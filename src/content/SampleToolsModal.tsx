@@ -260,6 +260,16 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
     setSelectedTemplateId(newTemplate.id);
   };
 
+  const handleDeleteTemplate = (id: string) => {
+    const newTemplates = templates.templates.filter((t) => t.id !== id);
+    const newLabelTemplates = { templates: newTemplates };
+    setTemplates(newLabelTemplates);
+    setLabelTemplates(newLabelTemplates);
+    if (selectedTemplateId === id && newTemplates.length > 0) {
+      setSelectedTemplateId(newTemplates[0].id);
+    }
+  };
+
   const rowSelection: TableProps<RowData>['rowSelection'] = {
     selectedRowKeys,
     onChange: (keys) => setSelectedRowKeys(keys),
@@ -346,6 +356,7 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
                 selectedId={selectedTemplateId}
                 onSelect={setSelectedTemplateId}
                 onAdd={handleAddTemplate}
+                onDelete={handleDeleteTemplate}
               />
 
               {/* Template Preview + Edit + Print */}
