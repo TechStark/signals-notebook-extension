@@ -198,12 +198,11 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 
   const selectedElement = selectedElementIndex !== null ? template.elements[selectedElementIndex] : null;
 
-  // Calculate canvas size based on aspect ratio
-  // Use a max width and calculate height proportionally
-  const maxCanvasWidth = 600;
-  const aspectRatio = template.width / template.height;
-  const canvasWidth = maxCanvasWidth;
-  const canvasHeight = maxCanvasWidth / aspectRatio;
+  // Calculate canvas size: use real mm values converted to pixels
+  // Assume 96 DPI (standard screen), so 1mm ≈ 3.78 pixels
+  const MM_TO_PX = 3.78;
+  const canvasWidth = template.width * MM_TO_PX;
+  const canvasHeight = template.height * MM_TO_PX;
 
   return (
     <div style={{ display: 'flex', height: '100%', gap: 16 }}>
@@ -339,7 +338,11 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
                   {/* Resize handle */}
                   {isSelected && (
                     <div
-                      onMouseDown={(e) => handleResizeStart(e, index)}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleResizeStart(e, index);
+                      }}
                       style={{
                         position: 'absolute',
                         right: 0,
@@ -376,7 +379,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
           <Space direction="vertical" style={{ width: '100%' }}>
             {/* Back to Add panel button */}
             <Button block icon={<ArrowLeftOutlined />} onClick={() => setShowAddPanel(true)}>
-              Add Element
+              Back
             </Button>
 
             {/* Delete button */}
@@ -391,44 +394,48 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 
             {/* Position */}
             <Card size="small" title="Position">
-              <Space>
-                <Text>Row:</Text>
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <div><Text>Row:</Text></div>
                 <InputNumber
                   value={selectedElement.row}
                   onChange={(v) => updateElement(selectedElementIndex!, { row: v ?? 0 })}
                   min={0}
                   max={template.rows - 1}
                   size="small"
+                  style={{ width: '100%' }}
                 />
-                <Text>Col:</Text>
+                <div><Text>Col:</Text></div>
                 <InputNumber
                   value={selectedElement.col}
                   onChange={(v) => updateElement(selectedElementIndex!, { col: v ?? 0 })}
                   min={0}
                   max={template.cols - 1}
                   size="small"
+                  style={{ width: '100%' }}
                 />
               </Space>
             </Card>
 
             {/* Size */}
             <Card size="small" title="Size">
-              <Space>
-                <Text>Row Span:</Text>
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <div><Text>Row Span:</Text></div>
                 <InputNumber
                   value={selectedElement.rowSpan}
                   onChange={(v) => updateElement(selectedElementIndex!, { rowSpan: v ?? 1 })}
                   min={1}
                   max={template.rows - selectedElement.row}
                   size="small"
+                  style={{ width: '100%' }}
                 />
-                <Text>Col Span:</Text>
+                <div><Text>Col Span:</Text></div>
                 <InputNumber
                   value={selectedElement.colSpan}
                   onChange={(v) => updateElement(selectedElementIndex!, { colSpan: v ?? 1 })}
                   min={1}
                   max={template.cols - selectedElement.col}
                   size="small"
+                  style={{ width: '100%' }}
                 />
               </Space>
             </Card>
