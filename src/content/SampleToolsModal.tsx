@@ -197,6 +197,7 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
   const [properties, setProperties] = useState<SampleProperty[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [pageSize, setPageSize] = useState(10);
   const [userData, setUserData] = useState<{ name: string; email: string } | null>(null);
 
   // Template state
@@ -370,7 +371,12 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
             dataSource={tableData.rows}
             rowSelection={rowSelection}
             size="small"
-            pagination={{ pageSize: 20, showSizeChanger: true }}
+            pagination={{
+              pageSize,
+              showSizeChanger: true,
+              pageSizeOptions: ['10', '20', '50', '100'],
+              onShowSizeChange: (_, size) => setPageSize(size),
+            }}
             scroll={{ y: 500 }}
           />
 
