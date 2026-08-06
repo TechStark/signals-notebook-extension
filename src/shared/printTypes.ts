@@ -55,13 +55,13 @@ export interface FieldElement extends BaseElement {
   type: 'field';
   source: DataSource;
   fieldName: string;
-  fieldType?: string;
+  dateFormat?: string;  // dayjs format string for date fields, e.g., 'YYYY-MM-DD'
 }
 
 /** Content part for QR/Barcode elements. */
 export type ContentPart =
   | { type: 'staticText'; content: string }
-  | { type: 'field'; source: DataSource; fieldName: string };
+  | { type: 'field'; source: DataSource; fieldName: string; dateFormat?: string };
 
 /** QR Code element with configurable content. */
 export interface QRCodeElement extends BaseElement {

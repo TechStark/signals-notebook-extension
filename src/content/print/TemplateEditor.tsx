@@ -77,7 +77,7 @@ const ContentPartsEditor: React.FC<ContentPartsEditorProps> = ({
               <Space direction="vertical" style={{ width: '100%' }}>
                 <Select
                   value={part.source}
-                  onChange={(v) => updatePart(index, { source: v as DataSource })}
+                  onChange={(v) => updatePart(index, { source: v as DataSource, fieldName: '', dateFormat: undefined })}
                   options={[
                     { value: 'sample', label: 'Sample' },
                     { value: 'user', label: 'User' },
@@ -87,7 +87,11 @@ const ContentPartsEditor: React.FC<ContentPartsEditorProps> = ({
                 />
                 <Select
                   value={part.fieldName}
-                  onChange={(v) => updatePart(index, { fieldName: v })}
+                  onChange={(v) => {
+                    const selectedProp = properties.find((p) => p.name === v);
+                    const isDate = selectedProp && (selectedProp.type === 'date' || selectedProp.type === 'datetime');
+                    updatePart(index, { fieldName: v, dateFormat: isDate ? 'YYYY-MM-DD' : undefined });
+                  }}
                   options={
                     part.source === 'user'
                       ? USER_FIELDS.map((f) => ({ value: f, label: f }))
@@ -97,6 +101,23 @@ const ContentPartsEditor: React.FC<ContentPartsEditorProps> = ({
                   size="small"
                   style={{ width: '100%' }}
                 />
+                {(() => {
+                  if (part.source === 'user') return null;
+                  const selectedProp = properties.find((p) => p.name === part.fieldName);
+                  if (!selectedProp || (selectedProp.type !== 'date' && selectedProp.type !== 'datetime')) return null;
+                  return (
+                    <Select
+                      value={part.dateFormat || 'YYYY-MM-DD'}
+                      onChange={(v) => updatePart(index, { dateFormat: v })}
+                      options={[
+                        { value: 'YYYY-MM-DD', label: 'Date only' },
+                        { value: 'YYYY-MM-DD HH:mm', label: 'Date + time' },
+                      ]}
+                      size="small"
+                      style={{ width: '100%' }}
+                    />
+                  );
+                })()}
               </Space>
             )}
           </Space>
@@ -559,6 +580,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
                       updateElement(selectedElementIndex!, {
                         source: v as DataSource,
                         fieldName: '',
+                        dateFormat: undefined,
                       } as TemplateElement);
                     }}
                     options={[
@@ -571,7 +593,14 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
                   <div><Text>Field:</Text></div>
                   <Select
                     value={selectedElement.fieldName}
-                    onChange={(v) => updateElement(selectedElementIndex!, { fieldName: v })}
+                    onChange={(v) => {
+                      const selectedProp = properties.find((p) => p.name === v);
+                      const isDate = selectedProp && (selectedProp.type === 'date' || selectedProp.type === 'datetime');
+                      updateElement(selectedElementIndex!, { 
+                        fieldName: v,
+                        dateFormat: isDate ? 'YYYY-MM-DD' : undefined,
+                      });
+                    }}
                     options={
                       selectedElement.source === 'user'
                         ? USER_FIELDS.map((f) => ({ value: f, label: f }))
@@ -580,6 +609,26 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
                     style={{ width: '100%' }}
                     size="small"
                   />
+                  {(() => {
+                    if (selectedElement.source === 'user') return null;
+                    const selectedProp = properties.find((p) => p.name === selectedElement.fieldName);
+                    if (!selectedProp || (selectedProp.type !== 'date' && selectedProp.type !== 'datetime')) return null;
+                    return (
+                      <>
+                        <div><Text>Date Format:</Text></div>
+                        <Select
+                          value={selectedElement.dateFormat || 'YYYY-MM-DD'}
+                          onChange={(v) => updateElement(selectedElementIndex!, { dateFormat: v })}
+                          options={[
+                            { value: 'YYYY-MM-DD', label: 'Date only (2024-01-15)' },
+                            { value: 'YYYY-MM-DD HH:mm', label: 'Date and time (2024-01-15 14:36)' },
+                          ]}
+                          style={{ width: '100%' }}
+                          size="small"
+                        />
+                      </>
+                    );
+                  })()}
                 </Space>
               </Card>
             )}

@@ -2,12 +2,44 @@ import type { LabelTemplate, TemplateElement, SampleProperty, ContentPart } from
 import { FONT_SIZE_MAP } from '@shared/printTypes';
 import { generateQRCode } from '@/utils/qrGenerator';
 import { generateBarcodeDataURL } from '@/utils/barcodeGenerator';
+import dayjs from 'dayjs';
 
 interface PrintContext {
   template: LabelTemplate;
   samples: Record<string, unknown>[];
   properties: SampleProperty[];
   userData?: { name: string; email: string };
+}
+
+/** Default date format for date/datetime fields. */
+const DEFAULT_DATE_FORMAT = 'YYYY-MM-DD';
+
+/** Checks if a property type is a date type. */
+function isDateType(type: string): boolean {
+  return type === 'date' || type === 'datetime';
+}
+
+/** Formats a value based on property type and format string. */
+function formatValue(
+  value: unknown,
+  prop: SampleProperty | undefined,
+  dateFormat?: string,
+): string {
+  if (value === null || value === undefined) return '-';
+  
+  // Handle object values with 'auto' property
+  if (typeof value === 'object' && 'auto' in (value as object)) {
+    value = (value as { auto?: string }).auto;
+    if (!value) return '-';
+  }
+  
+  // Format date values
+  if (prop && isDateType(prop.type)) {
+    const format = dateFormat || DEFAULT_DATE_FORMAT;
+    return dayjs(String(value)).format(format);
+  }
+  
+  return String(value);
 }
 
 /**
@@ -36,11 +68,7 @@ function resolveContentParts(
     }
     if (!prop) return `[Unknown: ${part.fieldName}]`;
     const value = sampleData[prop.key];
-    if (value === null || value === undefined) return '-';
-    if (typeof value === 'object' && 'auto' in (value as object)) {
-      return (value as { auto?: string }).auto || '-';
-    }
-    return String(value);
+    return formatValue(value, prop, part.dateFormat);
   }).join('');
 }
 
@@ -65,11 +93,7 @@ function getFieldDisplayValue(
   }
   if (!prop) return `[Unknown: ${element.fieldName}]`;
   const value = sampleData[prop.key];
-  if (value === null || value === undefined) return '-';
-  if (typeof value === 'object' && 'auto' in (value as object)) {
-    return (value as { auto?: string }).auto || '-';
-  }
-  return String(value);
+  return formatValue(value, prop, element.dateFormat);
 }
 
 /**

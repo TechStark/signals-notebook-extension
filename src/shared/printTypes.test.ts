@@ -43,8 +43,8 @@ describe('createDefaultElements', () => {
       throw new Error('Expected field element');
     }
 
-    // fieldType is now optional and should not be in the object
-    expect(fieldElement.fieldType).toBeUndefined();
+    // dateFormat should be undefined by default
+    expect(fieldElement.dateFormat).toBeUndefined();
   });
 });
 

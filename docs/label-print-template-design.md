@@ -135,12 +135,13 @@ interface FieldElement extends BaseElement {
   type: 'field';
   source: 'sample' | 'user';    // Data source
   fieldName: string;            // e.g., "ID" or "name"
+  dateFormat?: string;          // dayjs format string for date fields, e.g., 'YYYY-MM-DD', 'YYYY-MM-DD HH:mm'
 }
 
 // Content part for QR/Barcode elements
 type ContentPart =
   | { type: 'staticText'; content: string }
-  | { type: 'field'; source: DataSource; fieldName: string };
+  | { type: 'field'; source: DataSource; fieldName: string; dateFormat?: string };
 
 interface QRCodeElement extends BaseElement {
   type: 'qrCode';
@@ -285,16 +286,32 @@ When an element is selected, the right panel shows:
 
 - **Position**: Row, Col (number inputs)
 - **Size**: Row Span, Col Span (number inputs)
-- **Content** (for Field): Source dropdown, Field dropdown
+- **Content** (for Field): Source dropdown, Field dropdown, Date Format (if field is date type)
 - **Content** (for QR/Barcode): Dynamic content builder
   - Add "Text" button: Adds static text part
   - Add "Field" button: Adds field part (with Source and Field dropdowns)
+  - Each field part shows Date Format dropdown if the field is date type
   - List of parts with reorder handles and delete buttons
   - Live preview of resolved content
 - **Content** (for Static Text): Text input
 - **Style**: Font Size dropdown, Bold toggle, Align dropdown
 
 Each property has a clear label on the left side.
+
+### Date Format Configuration
+
+For fields with date/datetime type, the `dateFormat` property controls how dates are displayed:
+
+| Format | Example Output | Description |
+|--------|----------------|-------------|
+| `YYYY-MM-DD` (default) | `2024-01-15` | Date only |
+| `YYYY-MM-DD HH:mm` | `2024-01-15 14:36` | Date and time |
+| `YYYY/MM/DD` | `2024/01/15` | Alternative date format |
+| Custom dayjs format | User-defined | Any valid dayjs format string |
+
+- Default format: `YYYY-MM-DD` (applied when `dateFormat` is not specified)
+- Timezone: Browser local timezone (auto-converted from ISO strings)
+- Only shown for fields with `type: 'date'` or `type: 'datetime'`
 
 ## API Integration
 
