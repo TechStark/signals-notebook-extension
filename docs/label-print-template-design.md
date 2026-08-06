@@ -10,9 +10,10 @@ This document describes the design for a Label Print Template feature in the Sig
 2. Extension injects a "Sample Tools" button in the toolbar
 3. User clicks the button, opens SampleToolsModal
 4. User selects multiple samples in the table
-5. User clicks "Print Labels" button
-6. Extension generates HTML labels based on the selected template
-7. Browser print dialog opens, user prints labels
+5. Below the table, user sees Print Settings card with template selector and Print button
+6. User clicks "Print Labels" button
+7. Extension generates HTML labels based on the selected template
+8. Browser print dialog opens, user prints labels
 
 ## Feature Requirements
 
@@ -20,23 +21,42 @@ This document describes the design for a Label Print Template feature in the Sig
 
 - Maximum 5 templates stored in Chrome Sync Storage
 - Templates are ordered, first template is the default
+- Template naming: `Template 1`, `Template 2`, etc. (sequential numbering)
 - All samplesContainers share the same template list (cross-tenant compatible)
+
+### Default Template
+
+New templates are created with default content:
+- Grid: 2 rows × 2 columns
+- Element 1: Field (source=sample, fieldName=ID, row=0, col=0)
+- Element 2: QR Code (contentTemplate="{ID}", row=0, col=1, rowSpan=2, colSpan=1)
 
 ### Label Configuration
 
 | Property | Description |
 |----------|-------------|
-| Name | Template display name |
+| Name | Template display name (`Template N`) |
 | Width | Label width in mm (user-defined) |
 | Height | Label height in mm (user-defined) |
 | Grid Rows | Number of grid rows (user-defined) |
 | Grid Columns | Number of grid columns (user-defined) |
 
+### Data Sources
+
+MVP supports two data sources:
+
+| Source | Description | Available Fields |
+|--------|-------------|------------------|
+| `sample` | Sample properties from API | Dynamic (from Sample Properties API) |
+| `user` | Current logged-in user | `name`, `email` |
+
+Future extensibility: `experiment`, `materials` (not implemented in MVP)
+
 ### Element Types
 
 | Type | Description | Configuration |
 |------|-------------|---------------|
-| Field | Binds to Sample Property | `name + type` (for cross-tenant compatibility) |
+| Field | Binds to data source field | `source`, `fieldName`, `fieldType` |
 | QR Code | Scannable 2D barcode | Content template with `{fieldName}` placeholders |
 | Barcode | Code128 1D barcode | Content template with `{fieldName}` placeholders |
 | Static Text | Fixed text label | Plain text content |
@@ -45,8 +65,9 @@ This document describes the design for a Label Print Template feature in the Sig
 
 - Grid is evenly divided (equal cell sizes)
 - Elements can span multiple cells (`rowSpan`, `colSpan`)
-- Drag-and-drop UI for positioning elements
-- WYSIWYG preview while editing
+- **In-template drag-and-drop**: Drag elements within the grid to reposition
+- **Drag-resize**: Drag element corner to adjust rowSpan/colSpan
+- **Real-time preview**: Canvas reflects width/height changes instantly
 
 ### Element Styles (MVP)
 
@@ -60,9 +81,15 @@ QR Code and Barcode sizes are determined by grid spanning.
 
 ## Data Model
 
-### Sample Property
+### Data Sources
 
 ```typescript
+type DataSource = 'sample' | 'user';
+
+// User fields are fixed
+const USER_FIELDS = ['name', 'email'] as const;
+
+// Sample fields are dynamic, fetched from API
 interface SampleProperty {
   key: string;        // System-internal identifier (varies by tenant)
   name: string;       // User-visible display name (stable across tenants)
@@ -80,7 +107,7 @@ interface LabelTemplates {
 
 interface LabelTemplate {
   id: string;                    // UUID
-  name: string;                  // Template display name
+  name: string;                  // Template display name (e.g., "Template 1")
   width: number;                 // Label width in mm
   height: number;                // Label height in mm
   rows: number;                  // Grid rows count
@@ -106,8 +133,9 @@ interface BaseElement {
 
 interface FieldElement extends BaseElement {
   type: 'field';
-  propertyName: string;          // Match by name (not key) for cross-tenant compatibility
-  propertyType: string;          // Property type for matching
+  source: 'sample' | 'user';    // Data source
+  fieldName: string;            // e.g., "Sample ID" or "name"
+  fieldType: string;             // For cross-tenant matching (sample source only)
 }
 
 interface QRCodeElement extends BaseElement {
@@ -126,57 +154,34 @@ interface StaticTextElement extends BaseElement {
 }
 ```
 
-### Example Template
+### Example Template (Default)
 
 ```json
 {
   "id": "tpl-001",
-  "name": "Standard Sample Label",
+  "name": "Template 1",
   "width": 50,
   "height": 25,
-  "rows": 4,
-  "cols": 3,
+  "rows": 2,
+  "cols": 2,
   "elements": [
     {
       "type": "field",
-      "propertyName": "Sample ID",
-      "propertyType": "text",
+      "source": "sample",
+      "fieldName": "ID",
+      "fieldType": "text",
       "row": 0,
       "col": 0,
-      "colSpan": 2,
-      "fontSize": "large",
-      "bold": true
+      "rowSpan": 1,
+      "colSpan": 1
     },
     {
       "type": "qrCode",
-      "contentTemplate": "{Sample ID}",
+      "contentTemplate": "{ID}",
       "row": 0,
-      "col": 2,
-      "rowSpan": 4
-    },
-    {
-      "type": "field",
-      "propertyName": "Status",
-      "propertyType": "enum",
-      "row": 1,
-      "col": 0,
-      "colSpan": 2
-    },
-    {
-      "type": "staticText",
-      "content": "CAUTION",
-      "row": 2,
-      "col": 0,
-      "colSpan": 2,
-      "fontSize": "small",
-      "align": "center"
-    },
-    {
-      "type": "barcode",
-      "contentTemplate": "{Sample ID}",
-      "row": 3,
-      "col": 0,
-      "colSpan": 2
+      "col": 1,
+      "rowSpan": 2,
+      "colSpan": 1
     }
   ]
 }
@@ -189,59 +194,72 @@ interface StaticTextElement extends BaseElement {
 When rendering a template, the extension:
 
 1. Fetches current tenant's Sample Properties via API
-2. For each FieldElement, finds matching property by `propertyName + propertyType`
+2. For each FieldElement:
+   - If source is `user`: Use fixed fields (name, email)
+   - If source is `sample`: Find matching property by `fieldName + fieldType`
 3. If found, renders the field value
-4. If not found, renders `[Unknown: {propertyName}]`
-
-Example rendering output when property not found:
-```
-Sample ID: S-12345
-Status: [Unknown: Approval Status]
-```
+4. If not found, renders `[Unknown: {fieldName}]`
 
 ### QR/Barcode Content Resolution
 
-Content templates use property names (not keys):
+Content templates support placeholders from any data source:
 
 ```
-Template: "{Sample ID}"
-Resolution: Find property with name="Sample ID", get value from sample data
-Output: "S-12345" (encoded as QR/Barcode)
+Template: "{Sample ID} - {name}"
+Resolution: 
+  - {Sample ID}: Find sample property with name="Sample ID"
+  - {name}: Use current user's name
+Output: "S-12345 - John Doe" (encoded as QR/Barcode)
 ```
 
 ## UI Design
 
-### SampleToolsModal Modes
+### SampleToolsModal Layout
 
-#### Simple Mode (Default)
+In Simple Mode, the modal is divided into two sections:
 
-- Template selector dropdown (first template pre-selected)
-- Preview area showing selected template with placeholder data
-- "Edit Template" button (opens Edit Mode)
-- "Print Labels" button (prints selected samples)
+1. **Top Section**: Sample table with selection
+2. **Bottom Section**: Print Settings Card (visually grouped)
+   - Template selector (dropdown)
+   - Template preview (optional)
+   - "Edit Template" button
+   - "Print Labels" button
 
-#### Edit Mode (Full Screen Modal)
+### Template Editor (Full Screen Modal)
 
-- Left panel: Sample Properties list (draggable)
-- Center: Canvas with grid (WYSIWYG editor)
-- Right panel: Element properties (when element selected)
-- Top toolbar: Template name, dimensions, grid settings
-- Bottom: Save/Cancel buttons
+- **Top toolbar**: Template name input, Width/Height inputs, Grid Rows/Cols inputs
+- **Left side**: Grid canvas (WYSIWYG editor)
+- **Right side**: Property panel
+  - When no element selected: "Add Element" buttons (+ Field, + QR, + Barcode, + Text)
+  - When element selected: Element properties with "Add Element" button to switch back
 
-### Drag-and-Drop Interaction
+### Drag-and-Drop Interaction (In-Template)
 
-1. User drags property from left panel onto canvas grid
-2. Element snaps to nearest grid cell
-3. User can resize element by dragging corners (adjusts rowSpan/colSpan)
-4. User can drag element to reposition
-5. Right panel shows element properties (fontSize, bold, align, content template)
+1. Click on an element to select it
+2. Drag element to reposition within grid (snaps to grid cells)
+3. Drag element's bottom-right corner to resize (adjusts rowSpan/colSpan)
+4. Right panel updates with element properties
 
-### Template Management
+### Adding Elements
 
-- "Templates" dropdown in Simple Mode header
-- Dropdown shows all templates with "New Template" option
-- Each template has "Rename", "Duplicate", "Delete" actions
-- Deleting default template makes next one default (auto reorder)
+1. Click "Add Element" button in right panel
+2. Select element type: Field, QR Code, Barcode, Static Text
+3. For Field: Select data source (Sample/User), then select specific field
+4. Element appears in first available grid cell
+5. User drags to desired position
+
+### Property Panel Layout
+
+When an element is selected, the right panel shows:
+
+- **Position**: Row, Col (number inputs)
+- **Size**: Row Span, Col Span (number inputs)
+- **Content** (for Field): Source dropdown, Field dropdown
+- **Content** (for QR/Barcode): Content template input
+- **Content** (for Static Text): Text input
+- **Style**: Font Size dropdown, Bold toggle, Align dropdown
+
+Each property has a clear label on the left side.
 
 ## API Integration
 
@@ -274,6 +292,12 @@ Response:
   ]
 }
 ```
+
+### User Data
+
+Current user info is obtained from SNB session or API. Available fields:
+- `name`: User's display name
+- `email`: User's email address
 
 ### Sample Data API
 
@@ -381,6 +405,7 @@ src/
 
 ## Future Enhancements (Out of Scope for MVP)
 
+- Additional data sources: Experiment properties, Materials
 - Custom fonts and colors
 - Border and background styles
 - Image/logo elements
