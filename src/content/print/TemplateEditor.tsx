@@ -1,10 +1,118 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Button, Input, InputNumber, Select, Typography, Card, Space } from 'antd';
 import { DeleteOutlined, PlusOutlined, ArrowLeftOutlined } from '@ant-design/icons';
-import type { LabelTemplate, TemplateElement, SampleProperty, DataSource, ElementType, QRCodeElement, BarcodeElement } from '@shared/printTypes';
+import type { LabelTemplate, TemplateElement, SampleProperty, DataSource, ElementType, ContentPart } from '@shared/printTypes';
 import { DEFAULT_TEMPLATE, generateTemplateId, generateTemplateName, createDefaultElements, USER_FIELDS } from '@shared/printTypes';
 
 const { Text } = Typography;
+
+interface ContentPartsEditorProps {
+  parts: ContentPart[];
+  properties: SampleProperty[];
+  onChange: (parts: ContentPart[]) => void;
+}
+
+/** Editor for QR/Barcode content parts. */
+const ContentPartsEditor: React.FC<ContentPartsEditorProps> = ({
+  parts,
+  properties,
+  onChange,
+}) => {
+  const addStaticText = () => {
+    onChange([...parts, { type: 'staticText', content: '' }]);
+  };
+
+  const addField = () => {
+    onChange([...parts, { type: 'field', source: 'sample', fieldName: '' }]);
+  };
+
+  const updatePart = (index: number, updates: Partial<ContentPart>) => {
+    const newParts = [...parts];
+    newParts[index] = { ...newParts[index], ...updates } as ContentPart;
+    onChange(newParts);
+  };
+
+  const deletePart = (index: number) => {
+    const newParts = parts.filter((_, i) => i !== index);
+    onChange(newParts);
+  };
+
+  return (
+    <Space direction="vertical" style={{ width: '100%' }}>
+      {parts.map((part, index) => (
+        <Card key={index} size="small" style={{ marginBottom: 4 }}>
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+              <Select
+                value={part.type}
+                onChange={(v) => {
+                  if (v === 'staticText') {
+                    updatePart(index, { type: 'staticText', content: '' });
+                  } else {
+                    updatePart(index, { type: 'field', source: 'sample', fieldName: '' });
+                  }
+                }}
+                options={[
+                  { value: 'staticText', label: 'Text' },
+                  { value: 'field', label: 'Field' },
+                ]}
+                size="small"
+                style={{ width: 80 }}
+              />
+              <Button
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => deletePart(index)}
+              />
+            </Space>
+            {part.type === 'staticText' ? (
+              <Input
+                value={part.content}
+                onChange={(e) => updatePart(index, { content: e.target.value })}
+                placeholder="Enter text"
+                size="small"
+              />
+            ) : (
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Select
+                  value={part.source}
+                  onChange={(v) => updatePart(index, { source: v as DataSource })}
+                  options={[
+                    { value: 'sample', label: 'Sample' },
+                    { value: 'user', label: 'User' },
+                  ]}
+                  size="small"
+                  style={{ width: '100%' }}
+                />
+                <Select
+                  value={part.fieldName}
+                  onChange={(v) => updatePart(index, { fieldName: v })}
+                  options={
+                    part.source === 'user'
+                      ? USER_FIELDS.map((f) => ({ value: f, label: f }))
+                      : properties.map((p) => ({ value: p.name, label: p.name }))
+                  }
+                  placeholder="Select field"
+                  size="small"
+                  style={{ width: '100%' }}
+                />
+              </Space>
+            )}
+          </Space>
+        </Card>
+      ))}
+      <Space>
+        <Button size="small" icon={<PlusOutlined />} onClick={addStaticText}>
+          Text
+        </Button>
+        <Button size="small" icon={<PlusOutlined />} onClick={addField}>
+          Field
+        </Button>
+      </Space>
+    </Space>
+  );
+};
 
 interface TemplateEditorProps {
   template: LabelTemplate;
@@ -16,11 +124,11 @@ interface TemplateEditorProps {
 function createDefaultElement(type: ElementType): TemplateElement {
   switch (type) {
     case 'field':
-      return { type: 'field', source: 'sample', fieldName: '', fieldType: '', row: 0, col: 0, rowSpan: 1, colSpan: 1 };
+      return { type: 'field', source: 'sample', fieldName: '', row: 0, col: 0, rowSpan: 1, colSpan: 1 };
     case 'qrCode':
-      return { type: 'qrCode', contentTemplate: '{ID}', row: 0, col: 0, rowSpan: 1, colSpan: 1 };
+      return { type: 'qrCode', contentParts: [], row: 0, col: 0, rowSpan: 1, colSpan: 1 };
     case 'barcode':
-      return { type: 'barcode', contentTemplate: '{ID}', row: 0, col: 0, rowSpan: 1, colSpan: 1 };
+      return { type: 'barcode', contentParts: [], row: 0, col: 0, rowSpan: 1, colSpan: 1 };
     case 'staticText':
       return { type: 'staticText', content: 'Label', row: 0, col: 0, rowSpan: 1, colSpan: 1 };
   }
@@ -443,7 +551,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
             {/* Content - Field */}
             {selectedElement.type === 'field' && (
               <Card size="small" title="Content">
-                <Space orientation="vertical" style={{ width: '100%' }}>
+                <Space direction="vertical" style={{ width: '100%' }}>
                   <div><Text>Source:</Text></div>
                   <Select
                     value={selectedElement.source}
@@ -451,7 +559,6 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
                       updateElement(selectedElementIndex!, {
                         source: v as DataSource,
                         fieldName: '',
-                        fieldType: '',
                       } as TemplateElement);
                     }}
                     options={[
@@ -464,15 +571,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
                   <div><Text>Field:</Text></div>
                   <Select
                     value={selectedElement.fieldName}
-                    onChange={(v) => {
-                      const selectedSource = selectedElement.source;
-                      if (selectedSource === 'sample') {
-                        const prop = properties.find((p) => p.name === v);
-                        updateElement(selectedElementIndex!, { fieldName: v, fieldType: prop?.type || 'text' });
-                      } else {
-                        updateElement(selectedElementIndex!, { fieldName: v, fieldType: 'text' });
-                      }
-                    }}
+                    onChange={(v) => updateElement(selectedElementIndex!, { fieldName: v })}
                     options={
                       selectedElement.source === 'user'
                         ? USER_FIELDS.map((f) => ({ value: f, label: f }))
@@ -488,28 +587,11 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
             {/* Content - QR/Barcode */}
             {(selectedElement.type === 'qrCode' || selectedElement.type === 'barcode') && (
               <Card size="small" title="Content">
-                <Space orientation="vertical" style={{ width: '100%' }}>
-                  <div><Text>Source:</Text></div>
-                  <Select
-                    value={(selectedElement as QRCodeElement | BarcodeElement).source || 'sample'}
-                    onChange={(v) => {
-                      updateElement(selectedElementIndex!, { source: v as DataSource } as TemplateElement);
-                    }}
-                    options={[
-                      { value: 'sample', label: 'Sample' },
-                      { value: 'user', label: 'User' },
-                    ]}
-                    style={{ width: '100%' }}
-                    size="small"
-                  />
-                  <div><Text>Template:</Text></div>
-                  <Input
-                    value={(selectedElement as { contentTemplate: string }).contentTemplate}
-                    onChange={(e) => updateElement(selectedElementIndex!, { contentTemplate: e.target.value } as TemplateElement)}
-                    placeholder="{ID}"
-                    size="small"
-                  />
-                </Space>
+                <ContentPartsEditor
+                  parts={selectedElement.contentParts}
+                  properties={properties}
+                  onChange={(parts) => updateElement(selectedElementIndex!, { contentParts: parts } as TemplateElement)}
+                />
               </Card>
             )}
 

@@ -58,18 +58,21 @@ export interface FieldElement extends BaseElement {
   fieldType?: string;
 }
 
+/** Content part for QR/Barcode elements. */
+export type ContentPart =
+  | { type: 'staticText'; content: string }
+  | { type: 'field'; source: DataSource; fieldName: string };
+
 /** QR Code element with configurable content. */
 export interface QRCodeElement extends BaseElement {
   type: 'qrCode';
-  source?: DataSource;
-  contentTemplate: string;
+  contentParts: ContentPart[];
 }
 
 /** Code128 barcode element. */
 export interface BarcodeElement extends BaseElement {
   type: 'barcode';
-  source?: DataSource;
-  contentTemplate: string;
+  contentParts: ContentPart[];
 }
 
 /** Static text label. */
@@ -118,8 +121,9 @@ export function createDefaultElements(): TemplateElement[] {
     },
     {
       type: 'qrCode',
-      source: 'sample',
-      contentTemplate: '{ID}',
+      contentParts: [
+        { type: 'field', source: 'sample', fieldName: 'ID' },
+      ],
       row: 0,
       col: 1,
       rowSpan: 2,

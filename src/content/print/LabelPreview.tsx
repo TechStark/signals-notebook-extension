@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import type { LabelTemplate, TemplateElement, SampleProperty } from '@shared/printTypes';
+import type { LabelTemplate, TemplateElement, SampleProperty, ContentPart } from '@shared/printTypes';
 import { FONT_SIZE_MAP } from '@shared/printTypes';
 import { generateQRCode } from '@/utils/qrGenerator';
 import { generateBarcodeDataURL } from '@/utils/barcodeGenerator';
@@ -12,32 +12,37 @@ interface LabelPreviewProps {
 }
 
 /**
- * Resolves a content template string with data from multiple sources.
+ * Resolves content parts to a string.
  */
-function resolveTemplate(
-  template: string,
+function resolveContentParts(
+  parts: ContentPart[],
   sampleData: Record<string, unknown>,
   properties: SampleProperty[],
   userData?: { name: string; email: string },
 ): string {
-  return template.replace(/\{([^}]+)\}/g, (_, fieldName: string) => {
-    // First check user fields
-    if (fieldName === 'name' && userData) return userData.name;
-    if (fieldName === 'email' && userData) return userData.email;
-
-    // Then check sample properties - try name first, then key
-    let prop = properties.find((p) => p.name === fieldName);
-    if (!prop) {
-      prop = properties.find((p) => p.key === fieldName);
+  return parts.map((part) => {
+    if (part.type === 'staticText') {
+      return part.content;
     }
-    if (!prop) return `[Unknown: ${fieldName}]`;
+    // field type
+    if (part.source === 'user') {
+      if (part.fieldName === 'name' && userData) return userData.name;
+      if (part.fieldName === 'email' && userData) return userData.email;
+      return `[Unknown: ${part.fieldName}]`;
+    }
+    // sample source
+    let prop = properties.find((p) => p.name === part.fieldName);
+    if (!prop) {
+      prop = properties.find((p) => p.key === part.fieldName);
+    }
+    if (!prop) return `[Unknown: ${part.fieldName}]`;
     const value = sampleData[prop.key];
     if (value === null || value === undefined) return '-';
     if (typeof value === 'object' && 'auto' in (value as object)) {
       return (value as { auto?: string }).auto || '-';
     }
     return String(value);
-  });
+  }).join('');
 }
 
 /**
@@ -151,7 +156,7 @@ const LabelElement: React.FC<LabelElementProps> = ({
       return <div style={style}>{element.content}</div>;
 
     case 'qrCode': {
-      const content = resolveTemplate(element.contentTemplate, sampleData, properties, userData);
+      const content = resolveContentParts(element.contentParts, sampleData, properties, userData);
       const [qrDataUrl, setQrDataUrl] = React.useState<string>('');
       React.useEffect(() => {
         generateQRCode(content).then(setQrDataUrl);
@@ -170,7 +175,7 @@ const LabelElement: React.FC<LabelElementProps> = ({
     }
 
     case 'barcode': {
-      const content = resolveTemplate(element.contentTemplate, sampleData, properties, userData);
+      const content = resolveContentParts(element.contentParts, sampleData, properties, userData);
       const barcodeDataUrl = useMemo(
         () => generateBarcodeDataURL(content),
         [content],

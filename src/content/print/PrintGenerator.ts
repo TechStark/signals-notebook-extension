@@ -1,4 +1,4 @@
-import type { LabelTemplate, TemplateElement, SampleProperty } from '@shared/printTypes';
+import type { LabelTemplate, TemplateElement, SampleProperty, ContentPart } from '@shared/printTypes';
 import { FONT_SIZE_MAP } from '@shared/printTypes';
 import { generateQRCode } from '@/utils/qrGenerator';
 import { generateBarcodeDataURL } from '@/utils/barcodeGenerator';
@@ -11,27 +11,37 @@ interface PrintContext {
 }
 
 /**
- * Resolves a content template string with data from multiple sources.
+ * Resolves content parts to a string.
  */
-function resolveTemplate(
-  template: string,
+function resolveContentParts(
+  parts: ContentPart[],
   sampleData: Record<string, unknown>,
   properties: SampleProperty[],
   userData?: { name: string; email: string },
 ): string {
-  return template.replace(/\{([^}]+)\}/g, (_, fieldName: string) => {
-    if (fieldName === 'name' && userData) return userData.name;
-    if (fieldName === 'email' && userData) return userData.email;
-
-    const prop = properties.find((p) => p.name === fieldName);
-    if (!prop) return `[Unknown: ${fieldName}]`;
+  return parts.map((part) => {
+    if (part.type === 'staticText') {
+      return part.content;
+    }
+    // field type
+    if (part.source === 'user') {
+      if (part.fieldName === 'name' && userData) return userData.name;
+      if (part.fieldName === 'email' && userData) return userData.email;
+      return `[Unknown: ${part.fieldName}]`;
+    }
+    // sample source
+    let prop = properties.find((p) => p.name === part.fieldName);
+    if (!prop) {
+      prop = properties.find((p) => p.key === part.fieldName);
+    }
+    if (!prop) return `[Unknown: ${part.fieldName}]`;
     const value = sampleData[prop.key];
     if (value === null || value === undefined) return '-';
     if (typeof value === 'object' && 'auto' in (value as object)) {
       return (value as { auto?: string }).auto || '-';
     }
     return String(value);
-  });
+  }).join('');
 }
 
 /**
@@ -49,9 +59,10 @@ function getFieldDisplayValue(
     return `[Unknown: ${element.fieldName}]`;
   }
 
-  const prop = properties.find(
-    (p) => p.name === element.fieldName && p.type === element.fieldType,
-  );
+  let prop = properties.find((p) => p.name === element.fieldName);
+  if (!prop) {
+    prop = properties.find((p) => p.key === element.fieldName);
+  }
   if (!prop) return `[Unknown: ${element.fieldName}]`;
   const value = sampleData[prop.key];
   if (value === null || value === undefined) return '-';
@@ -91,7 +102,7 @@ async function generateElementHTML(
       return `<div style="${style}">${element.content}</div>`;
 
     case 'qrCode': {
-      const content = resolveTemplate(element.contentTemplate, sampleData, properties, userData);
+      const content = resolveContentParts(element.contentParts, sampleData, properties, userData);
       const qrDataUrl = await generateQRCode(content);
       return `<div style="${style} justify-content: center;">
         <img src="${qrDataUrl}" alt="QR" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
@@ -99,7 +110,7 @@ async function generateElementHTML(
     }
 
     case 'barcode': {
-      const content = resolveTemplate(element.contentTemplate, sampleData, properties, userData);
+      const content = resolveContentParts(element.contentParts, sampleData, properties, userData);
       const barcodeDataUrl = generateBarcodeDataURL(content);
       return `<div style="${style} justify-content: center;">
         <img src="${barcodeDataUrl}" alt="Barcode" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
