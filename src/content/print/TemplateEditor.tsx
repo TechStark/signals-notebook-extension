@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Button, Input, InputNumber, Select, Typography, Card, Space } from 'antd';
 import { DeleteOutlined, PlusOutlined, ArrowLeftOutlined } from '@ant-design/icons';
-import type { LabelTemplate, TemplateElement, SampleProperty, DataSource, ElementType } from '@shared/printTypes';
+import type { LabelTemplate, TemplateElement, SampleProperty, DataSource, ElementType, QRCodeElement, BarcodeElement } from '@shared/printTypes';
 import { DEFAULT_TEMPLATE, generateTemplateId, generateTemplateName, createDefaultElements, USER_FIELDS } from '@shared/printTypes';
 
 const { Text } = Typography;
@@ -489,6 +489,19 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
             {(selectedElement.type === 'qrCode' || selectedElement.type === 'barcode') && (
               <Card size="small" title="Content">
                 <Space orientation="vertical" style={{ width: '100%' }}>
+                  <div><Text>Source:</Text></div>
+                  <Select
+                    value={(selectedElement as QRCodeElement | BarcodeElement).source || 'sample'}
+                    onChange={(v) => {
+                      updateElement(selectedElementIndex!, { source: v as DataSource } as TemplateElement);
+                    }}
+                    options={[
+                      { value: 'sample', label: 'Sample' },
+                      { value: 'user', label: 'User' },
+                    ]}
+                    style={{ width: '100%' }}
+                    size="small"
+                  />
                   <div><Text>Template:</Text></div>
                   <Input
                     value={(selectedElement as { contentTemplate: string }).contentTemplate}

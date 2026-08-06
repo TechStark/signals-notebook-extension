@@ -25,8 +25,11 @@ function resolveTemplate(
     if (fieldName === 'name' && userData) return userData.name;
     if (fieldName === 'email' && userData) return userData.email;
 
-    // Then check sample properties
-    const prop = properties.find((p) => p.name === fieldName);
+    // Then check sample properties - try name first, then key
+    let prop = properties.find((p) => p.name === fieldName);
+    if (!prop) {
+      prop = properties.find((p) => p.key === fieldName);
+    }
     if (!prop) return `[Unknown: ${fieldName}]`;
     const value = sampleData[prop.key];
     if (value === null || value === undefined) return '-';
@@ -52,10 +55,11 @@ function getFieldDisplayValue(
     return `[Unknown: ${element.fieldName}]`;
   }
 
-  // sample source
-  const prop = properties.find(
-    (p) => p.name === element.fieldName && p.type === element.fieldType,
-  );
+  // sample source - find by name first, then by key as fallback
+  let prop = properties.find((p) => p.name === element.fieldName);
+  if (!prop) {
+    prop = properties.find((p) => p.key === element.fieldName);
+  }
   if (!prop) return `[Unknown: ${element.fieldName}]`;
   const value = sampleData[prop.key];
   if (value === null || value === undefined) return '-';
