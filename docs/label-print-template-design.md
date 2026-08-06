@@ -73,7 +73,7 @@ Future extensibility: `experiment`, `materials` (not implemented in MVP)
 
 | Style | Values | Applies To |
 |-------|--------|------------|
-| fontSize | `small`, `medium`, `large` | Field, Static Text |
+| fontSize | `string` | `12px` | Font size with unit (e.g., `12px`, `14pt`). Supports `px` and `pt` units. | Field, Static Text |
 | bold | `true`, `false` | Field, Static Text |
 | align | `left`, `center`, `right` | Field, Static Text |
 
@@ -126,7 +126,7 @@ interface BaseElement {
   col: number;                   // Start column (0-indexed)
   rowSpan: number;               // Span rows (default: 1)
   colSpan: number;               // Span columns (default: 1)
-  fontSize?: 'small' | 'medium' | 'large';
+  fontSize?: string;             // Font size with unit, e.g., '12px', '14pt' (default: '12px')
   bold?: boolean;
   align?: 'left' | 'center' | 'right';
 }

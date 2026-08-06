@@ -1,5 +1,5 @@
 import type { LabelTemplate, TemplateElement, SampleProperty, ContentPart } from '@shared/printTypes';
-import { FONT_SIZE_MAP } from '@shared/printTypes';
+import { DEFAULT_FONT_SIZE } from '@shared/printTypes';
 import { generateQRCode } from '@/utils/qrGenerator';
 import { generateBarcodeDataURL } from '@/utils/barcodeGenerator';
 import dayjs from 'dayjs';
@@ -108,7 +108,7 @@ async function generateElementHTML(
   const style = `
     grid-column: ${element.col + 1} / span ${element.colSpan};
     grid-row: ${element.row + 1} / span ${element.rowSpan};
-    font-size: ${element.fontSize ? FONT_SIZE_MAP[element.fontSize] : '12px'};
+    font-size: ${element.fontSize || DEFAULT_FONT_SIZE};
     font-weight: ${element.bold ? 'bold' : 'normal'};
     text-align: ${element.align || 'left'};
     display: flex;

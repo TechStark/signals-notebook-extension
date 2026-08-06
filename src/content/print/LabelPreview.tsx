@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import type { LabelTemplate, TemplateElement, SampleProperty, ContentPart } from '@shared/printTypes';
-import { FONT_SIZE_MAP } from '@shared/printTypes';
+import { DEFAULT_FONT_SIZE } from '@shared/printTypes';
 import { generateQRCode } from '@/utils/qrGenerator';
 import { generateBarcodeDataURL } from '@/utils/barcodeGenerator';
 import dayjs from 'dayjs';
@@ -157,7 +157,7 @@ const LabelElement: React.FC<LabelElementProps> = ({
   const style: React.CSSProperties = {
     gridColumn: `${element.col + 1} / span ${element.colSpan}`,
     gridRow: `${element.row + 1} / span ${element.rowSpan}`,
-    fontSize: element.fontSize ? FONT_SIZE_MAP[element.fontSize] : '12px',
+    fontSize: element.fontSize || DEFAULT_FONT_SIZE,
     fontWeight: element.bold ? 'bold' : 'normal',
     textAlign: element.align || 'left',
     display: 'flex',

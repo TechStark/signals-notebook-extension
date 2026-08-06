@@ -661,19 +661,39 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
             {/* Style */}
             {(selectedElement.type === 'field' || selectedElement.type === 'staticText') && (
               <Card size="small" title="Style">
-                <Space orientation="vertical" style={{ width: '100%' }}>
+                <Space direction="vertical" style={{ width: '100%' }}>
                   <div><Text>Font Size:</Text></div>
-                  <Select
-                    value={selectedElement.fontSize || 'medium'}
-                    onChange={(v) => updateElement(selectedElementIndex!, { fontSize: v })}
-                    options={[
-                      { value: 'small', label: 'Small' },
-                      { value: 'medium', label: 'Medium' },
-                      { value: 'large', label: 'Large' },
-                    ]}
-                    style={{ width: '100%' }}
-                    size="small"
-                  />
+                  <Space.Compact style={{ width: '100%' }}>
+                    <InputNumber
+                      value={(() => {
+                        const fs = selectedElement.fontSize || '12px';
+                        return parseInt(fs, 10) || 12;
+                      })()}
+                      onChange={(v) => {
+                        const unit = (selectedElement.fontSize || '12px').replace(/\d+/, '') || 'px';
+                        updateElement(selectedElementIndex!, { fontSize: `${v || 12}${unit}` });
+                      }}
+                      min={1}
+                      size="small"
+                      style={{ width: '70%' }}
+                    />
+                    <Select
+                      value={(() => {
+                        const fs = selectedElement.fontSize || '12px';
+                        return fs.replace(/\d+/, '') || 'px';
+                      })()}
+                      onChange={(v) => {
+                        const num = parseInt(selectedElement.fontSize || '12px', 10) || 12;
+                        updateElement(selectedElementIndex!, { fontSize: `${num}${v}` });
+                      }}
+                      options={[
+                        { value: 'px', label: 'px' },
+                        { value: 'pt', label: 'pt' },
+                      ]}
+                      size="small"
+                      style={{ width: '30%' }}
+                    />
+                  </Space.Compact>
                   <div><Text>Align:</Text></div>
                   <Select
                     value={selectedElement.align || 'left'}

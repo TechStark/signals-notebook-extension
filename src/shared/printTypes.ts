@@ -45,7 +45,7 @@ export interface BaseElement {
   col: number;
   rowSpan: number;
   colSpan: number;
-  fontSize?: 'small' | 'medium' | 'large';
+  fontSize?: string;  // Font size with unit, e.g., '12px', '14pt'
   bold?: boolean;
   align?: 'left' | 'center' | 'right';
 }
@@ -81,12 +81,8 @@ export interface StaticTextElement extends BaseElement {
   content: string;
 }
 
-/** Font size to CSS mapping. */
-export const FONT_SIZE_MAP: Record<'small' | 'medium' | 'large', string> = {
-  small: '10px',
-  medium: '14px',
-  large: '18px',
-};
+/** Default font size. */
+export const DEFAULT_FONT_SIZE = '12px';
 
 /** Default template configuration (2x2 grid with ID + QR). */
 export const DEFAULT_TEMPLATE: Omit<LabelTemplate, 'id' | 'name'> = {
