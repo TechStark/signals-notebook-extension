@@ -199,9 +199,11 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   const selectedElement = selectedElementIndex !== null ? template.elements[selectedElementIndex] : null;
 
   // Calculate canvas size based on aspect ratio
+  // Use a max width and calculate height proportionally
+  const maxCanvasWidth = 600;
   const aspectRatio = template.width / template.height;
-  const canvasHeight = 400;
-  const canvasWidth = canvasHeight * aspectRatio;
+  const canvasWidth = maxCanvasWidth;
+  const canvasHeight = maxCanvasWidth / aspectRatio;
 
   return (
     <div style={{ display: 'flex', height: '100%', gap: 16 }}>
@@ -266,11 +268,10 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
               display: 'grid',
               gridTemplateColumns: `repeat(${template.cols}, 1fr)`,
               gridTemplateRows: `repeat(${template.rows}, 1fr)`,
-              gap: 2,
-              background: '#f5f5f5',
-              border: '1px solid #d9d9d9',
+              gap: 1,
+              background: '#d9d9d9',
+              border: '1px solid #bbb',
               borderRadius: 4,
-              padding: 8,
             }}
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleCanvasDrop}
@@ -279,12 +280,34 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
               setShowAddPanel(true);
             }}
           >
+            {/* Grid cells for empty areas */}
+            {Array.from({ length: template.rows * template.cols }).map((_, cellIndex) => {
+              const cellRow = Math.floor(cellIndex / template.cols);
+              const cellCol = cellIndex % template.cols;
+              const elementAtCell = template.elements.find(
+                (el) =>
+                  cellRow >= el.row &&
+                  cellRow < el.row + el.rowSpan &&
+                  cellCol >= el.col &&
+                  cellCol < el.col + el.colSpan
+              );
+              if (elementAtCell) return null;
+              return (
+                <div
+                  key={`empty-${cellIndex}`}
+                  style={{
+                    background: '#fafafa',
+                    borderRadius: 2,
+                  }}
+                />
+              );
+            })}
             {template.elements.map((element, index) => {
               const isSelected = index === selectedElementIndex;
               const isDragging = dragState?.index === index;
               return (
                 <div
-                  key={index}
+                  key={`element-${index}`}
                   draggable
                   onDragStart={(e) => handleDragStart(e, index)}
                   onClick={(e) => {
