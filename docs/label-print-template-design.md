@@ -23,6 +23,7 @@ This document describes the design for a Label Print Template feature in the Sig
 - Templates are ordered, first template is the default
 - Template naming: `Template 1`, `Template 2`, etc. (sequential numbering)
 - All samplesContainers share the same template list (cross-tenant compatible)
+- **Template Reordering**: Users can drag-and-drop template buttons to reorder them in the template list
 
 ### Default Template
 

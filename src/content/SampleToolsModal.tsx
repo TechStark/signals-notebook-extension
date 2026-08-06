@@ -295,6 +295,12 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
     }
   };
 
+  const handleReorderTemplates = (reorderedTemplates: LabelTemplate[]) => {
+    const newLabelTemplates = { templates: reorderedTemplates };
+    setTemplates(newLabelTemplates);
+    setLabelTemplates(newLabelTemplates);
+  };
+
   const rowSelection: TableProps<RowData>['rowSelection'] = {
     selectedRowKeys,
     onChange: (keys) => setSelectedRowKeys(keys),
@@ -381,6 +387,7 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
                 selectedId={selectedTemplateId}
                 onSelect={setSelectedTemplateId}
                 onAdd={handleAddTemplate}
+                onReorder={handleReorderTemplates}
               />
 
               {/* Template Preview + Edit + Print */}

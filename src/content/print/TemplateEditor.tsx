@@ -732,6 +732,7 @@ interface TemplateListProps {
   selectedId: string;
   onSelect: (id: string) => void;
   onAdd: () => void;
+  onReorder: (templates: LabelTemplate[]) => void;
 }
 
 export const TemplateList: React.FC<TemplateListProps> = ({
@@ -739,15 +740,52 @@ export const TemplateList: React.FC<TemplateListProps> = ({
   selectedId,
   onSelect,
   onAdd,
+  onReorder,
 }) => {
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDragIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === dropIndex) return;
+
+    const newTemplates = [...templates];
+    const [draggedItem] = newTemplates.splice(dragIndex, 1);
+    newTemplates.splice(dropIndex, 0, draggedItem);
+    onReorder(newTemplates);
+    setDragIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDragIndex(null);
+  };
+
   return (
     <Space wrap style={{ width: '100%', marginBottom: 8 }}>
-      {templates.map((tpl) => (
+      {templates.map((tpl, index) => (
         <Button
           key={tpl.id}
           type={selectedId === tpl.id ? 'primary' : 'default'}
           onClick={() => onSelect(tpl.id)}
           size="small"
+          draggable
+          onDragStart={(e) => handleDragStart(e, index)}
+          onDragOver={handleDragOver}
+          onDrop={(e) => handleDrop(e, index)}
+          onDragEnd={handleDragEnd}
+          style={{
+            opacity: dragIndex === index ? 0.5 : 1,
+            cursor: 'grab',
+          }}
         >
           {tpl.name}
         </Button>
