@@ -784,7 +784,7 @@ export const TemplateList: React.FC<TemplateListProps> = ({
           onDragEnd={handleDragEnd}
           style={{
             opacity: dragIndex === index ? 0.5 : 1,
-            cursor: 'grab',
+            cursor: 'move',
           }}
         >
           {tpl.name}
