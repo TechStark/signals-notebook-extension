@@ -375,7 +375,7 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
                       properties={properties}
                     />
                   </div>
-                  <Space direction="vertical">
+                  <Space orientation="vertical">
                     <Button
                       icon={<EditOutlined />}
                       onClick={() => setEditMode(true)}

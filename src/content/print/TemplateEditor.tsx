@@ -369,14 +369,14 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
         bodyStyle={{ padding: 12 }}
       >
         {showAddPanel || !selectedElement ? (
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
             <Button block onClick={() => addElement('field')}>+ Field</Button>
             <Button block onClick={() => addElement('qrCode')}>+ QR Code</Button>
             <Button block onClick={() => addElement('barcode')}>+ Barcode</Button>
             <Button block onClick={() => addElement('staticText')}>+ Static Text</Button>
           </Space>
         ) : selectedElementIndex !== null ? (
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
             {/* Back to Add panel button */}
             <Button block icon={<ArrowLeftOutlined />} onClick={() => setShowAddPanel(true)}>
               Back
@@ -394,7 +394,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 
             {/* Position */}
             <Card size="small" title="Position">
-              <Space direction="vertical" style={{ width: '100%' }}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
                 <div><Text>Row:</Text></div>
                 <InputNumber
                   value={selectedElement.row}
@@ -418,7 +418,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
 
             {/* Size */}
             <Card size="small" title="Size">
-              <Space direction="vertical" style={{ width: '100%' }}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
                 <div><Text>Row Span:</Text></div>
                 <InputNumber
                   value={selectedElement.rowSpan}
@@ -443,7 +443,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
             {/* Content - Field */}
             {selectedElement.type === 'field' && (
               <Card size="small" title="Content">
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <div><Text>Source:</Text></div>
                   <Select
                     value={selectedElement.source}
@@ -488,7 +488,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
             {/* Content - QR/Barcode */}
             {(selectedElement.type === 'qrCode' || selectedElement.type === 'barcode') && (
               <Card size="small" title="Content">
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <div><Text>Template:</Text></div>
                   <Input
                     value={(selectedElement as { contentTemplate: string }).contentTemplate}
@@ -503,7 +503,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
             {/* Content - Static Text */}
             {selectedElement.type === 'staticText' && (
               <Card size="small" title="Content">
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <div><Text>Text:</Text></div>
                   <Input
                     value={selectedElement.content}
@@ -517,7 +517,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
             {/* Style */}
             {(selectedElement.type === 'field' || selectedElement.type === 'staticText') && (
               <Card size="small" title="Style">
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <div><Text>Font Size:</Text></div>
                   <Select
                     value={selectedElement.fontSize || 'medium'}
@@ -595,7 +595,7 @@ export const TemplateList: React.FC<TemplateListProps> = ({
         onClick={onAdd}
         disabled={templates.length >= 5}
       >
-        New
+        New Template
       </Button>
     </Space>
   );
