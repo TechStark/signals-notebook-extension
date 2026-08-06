@@ -2,6 +2,13 @@
  * Type definitions for Label Print Template feature.
  */
 
+/** Data source types. */
+export type DataSource = 'sample' | 'user';
+
+/** User fields are fixed. */
+export const USER_FIELDS = ['name', 'email'] as const;
+export type UserField = (typeof USER_FIELDS)[number];
+
 /** Sample Property from API. */
 export interface SampleProperty {
   key: string;
@@ -43,11 +50,12 @@ export interface BaseElement {
   align?: 'left' | 'center' | 'right';
 }
 
-/** Data field bound to a Sample Property. */
+/** Data field bound to a data source. */
 export interface FieldElement extends BaseElement {
   type: 'field';
-  propertyName: string;
-  propertyType: string;
+  source: DataSource;
+  fieldName: string;
+  fieldType: string;
 }
 
 /** QR Code element with configurable content. */
@@ -75,16 +83,45 @@ export const FONT_SIZE_MAP: Record<'small' | 'medium' | 'large', string> = {
   large: '18px',
 };
 
-/** Default template configuration. */
+/** Default template configuration (2x2 grid with ID + QR). */
 export const DEFAULT_TEMPLATE: Omit<LabelTemplate, 'id' | 'name'> = {
   width: 50,
   height: 25,
-  rows: 4,
-  cols: 3,
+  rows: 2,
+  cols: 2,
   elements: [],
 };
 
 /** Generate a unique ID for templates. */
 export function generateTemplateId(): string {
   return `tpl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Generate sequential template name. */
+export function generateTemplateName(existingCount: number): string {
+  return `Template ${existingCount + 1}`;
+}
+
+/** Create default elements for a new template. */
+export function createDefaultElements(): TemplateElement[] {
+  return [
+    {
+      type: 'field',
+      source: 'sample',
+      fieldName: 'ID',
+      fieldType: 'text',
+      row: 0,
+      col: 0,
+      rowSpan: 1,
+      colSpan: 1,
+    },
+    {
+      type: 'qrCode',
+      contentTemplate: '{ID}',
+      row: 0,
+      col: 1,
+      rowSpan: 2,
+      colSpan: 1,
+    },
+  ];
 }

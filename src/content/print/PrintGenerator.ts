@@ -7,19 +7,24 @@ interface PrintContext {
   template: LabelTemplate;
   samples: Record<string, unknown>[];
   properties: SampleProperty[];
+  userData?: { name: string; email: string };
 }
 
 /**
- * Resolves a content template string with sample data.
+ * Resolves a content template string with data from multiple sources.
  */
 function resolveTemplate(
   template: string,
   sampleData: Record<string, unknown>,
   properties: SampleProperty[],
+  userData?: { name: string; email: string },
 ): string {
-  return template.replace(/\{([^}]+)\}/g, (_, propName: string) => {
-    const prop = properties.find((p) => p.name === propName);
-    if (!prop) return `[Unknown: ${propName}]`;
+  return template.replace(/\{([^}]+)\}/g, (_, fieldName: string) => {
+    if (fieldName === 'name' && userData) return userData.name;
+    if (fieldName === 'email' && userData) return userData.email;
+
+    const prop = properties.find((p) => p.name === fieldName);
+    if (!prop) return `[Unknown: ${fieldName}]`;
     const value = sampleData[prop.key];
     if (value === null || value === undefined) return '-';
     if (typeof value === 'object' && 'auto' in (value as object)) {
@@ -36,11 +41,18 @@ function getFieldDisplayValue(
   element: TemplateElement & { type: 'field' },
   sampleData: Record<string, unknown>,
   properties: SampleProperty[],
+  userData?: { name: string; email: string },
 ): string {
+  if (element.source === 'user') {
+    if (element.fieldName === 'name' && userData) return userData.name;
+    if (element.fieldName === 'email' && userData) return userData.email;
+    return `[Unknown: ${element.fieldName}]`;
+  }
+
   const prop = properties.find(
-    (p) => p.name === element.propertyName && p.type === element.propertyType,
+    (p) => p.name === element.fieldName && p.type === element.fieldType,
   );
-  if (!prop) return `[Unknown: ${element.propertyName}]`;
+  if (!prop) return `[Unknown: ${element.fieldName}]`;
   const value = sampleData[prop.key];
   if (value === null || value === undefined) return '-';
   if (typeof value === 'object' && 'auto' in (value as object)) {
@@ -56,6 +68,7 @@ async function generateElementHTML(
   element: TemplateElement,
   sampleData: Record<string, unknown>,
   properties: SampleProperty[],
+  userData?: { name: string; email: string },
 ): Promise<string> {
   const style = `
     grid-column: ${element.col + 1} / span ${element.colSpan};
@@ -72,13 +85,13 @@ async function generateElementHTML(
 
   switch (element.type) {
     case 'field':
-      return `<div style="${style}">${getFieldDisplayValue(element, sampleData, properties)}</div>`;
+      return `<div style="${style}">${getFieldDisplayValue(element, sampleData, properties, userData)}</div>`;
 
     case 'staticText':
       return `<div style="${style}">${element.content}</div>`;
 
     case 'qrCode': {
-      const content = resolveTemplate(element.contentTemplate, sampleData, properties);
+      const content = resolveTemplate(element.contentTemplate, sampleData, properties, userData);
       const qrDataUrl = await generateQRCode(content);
       return `<div style="${style} justify-content: center;">
         <img src="${qrDataUrl}" alt="QR" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
@@ -86,7 +99,7 @@ async function generateElementHTML(
     }
 
     case 'barcode': {
-      const content = resolveTemplate(element.contentTemplate, sampleData, properties);
+      const content = resolveTemplate(element.contentTemplate, sampleData, properties, userData);
       const barcodeDataUrl = generateBarcodeDataURL(content);
       return `<div style="${style} justify-content: center;">
         <img src="${barcodeDataUrl}" alt="Barcode" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
@@ -105,9 +118,10 @@ async function generateLabelHTML(
   template: LabelTemplate,
   sampleData: Record<string, unknown>,
   properties: SampleProperty[],
+  userData?: { name: string; email: string },
 ): Promise<string> {
   const elementsHTML = await Promise.all(
-    template.elements.map((el) => generateElementHTML(el, sampleData, properties)),
+    template.elements.map((el) => generateElementHTML(el, sampleData, properties, userData)),
   );
 
   return `
@@ -123,10 +137,10 @@ async function generateLabelHTML(
  * Generates a full HTML document for printing labels.
  */
 export async function generatePrintHTML(context: PrintContext): Promise<string> {
-  const { template, samples, properties } = context;
+  const { template, samples, properties, userData } = context;
 
   const labelsHTML = await Promise.all(
-    samples.map((sample) => generateLabelHTML(template, sample, properties)),
+    samples.map((sample) => generateLabelHTML(template, sample, properties, userData)),
   );
 
   return `

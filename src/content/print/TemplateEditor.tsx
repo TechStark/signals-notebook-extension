@@ -1,8 +1,8 @@
-import React, { useState, useCallback } from 'react';
-import { Button, Input, InputNumber, Space, Select, Typography, Card, Dropdown } from 'antd';
-import { DeleteOutlined, SettingOutlined, PlusOutlined, CopyOutlined, MoreOutlined } from '@ant-design/icons';
-import type { LabelTemplate, TemplateElement, SampleProperty, ElementType } from '@shared/printTypes';
-import { DEFAULT_TEMPLATE, generateTemplateId } from '@shared/printTypes';
+import React, { useState, useCallback, useRef } from 'react';
+import { Button, Input, InputNumber, Select, Typography, Card, Space } from 'antd';
+import { DeleteOutlined, PlusOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import type { LabelTemplate, TemplateElement, SampleProperty, DataSource, ElementType } from '@shared/printTypes';
+import { DEFAULT_TEMPLATE, generateTemplateId, generateTemplateName, createDefaultElements, USER_FIELDS } from '@shared/printTypes';
 
 const { Text } = Typography;
 
@@ -13,18 +13,16 @@ interface TemplateEditorProps {
 }
 
 /** Creates a default element for a given type. */
-function createDefaultElement(type: ElementType, row: number, col: number): TemplateElement {
-  const base = { row, col, rowSpan: 1, colSpan: 1 };
-
+function createDefaultElement(type: ElementType): TemplateElement {
   switch (type) {
     case 'field':
-      return { ...base, type: 'field', propertyName: '', propertyType: '' };
+      return { type: 'field', source: 'sample', fieldName: '', fieldType: '', row: 0, col: 0, rowSpan: 1, colSpan: 1 };
     case 'qrCode':
-      return { ...base, type: 'qrCode', contentTemplate: '{ID}' };
+      return { type: 'qrCode', contentTemplate: '{ID}', row: 0, col: 0, rowSpan: 1, colSpan: 1 };
     case 'barcode':
-      return { ...base, type: 'barcode', contentTemplate: '{ID}' };
+      return { type: 'barcode', contentTemplate: '{ID}', row: 0, col: 0, rowSpan: 1, colSpan: 1 };
     case 'staticText':
-      return { ...base, type: 'staticText', content: 'Label' };
+      return { type: 'staticText', content: 'Label', row: 0, col: 0, rowSpan: 1, colSpan: 1 };
   }
 }
 
@@ -37,7 +35,22 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   onChange,
 }) => {
   const [selectedElementIndex, setSelectedElementIndex] = useState<number | null>(null);
-  const [dragToAdd, setDragToAdd] = useState<ElementType | null>(null);
+  const [showAddPanel, setShowAddPanel] = useState(true);
+  const [dragState, setDragState] = useState<{
+    index: number;
+    startX: number;
+    startY: number;
+    startRow: number;
+    startCol: number;
+  } | null>(null);
+  const [resizeState, setResizeState] = useState<{
+    index: number;
+    startRowSpan: number;
+    startColSpan: number;
+    startX: number;
+    startY: number;
+  } | null>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
 
   const updateTemplate = useCallback(
     (updates: Partial<LabelTemplate>) => {
@@ -56,12 +69,34 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   );
 
   const addElement = useCallback(
-    (type: ElementType, row: number, col: number) => {
-      const newElement = createDefaultElement(type, row, col);
+    (type: ElementType) => {
+      // Find first empty cell
+      const occupied = new Set<string>();
+      template.elements.forEach((el) => {
+        for (let r = el.row; r < el.row + el.rowSpan; r++) {
+          for (let c = el.col; c < el.col + el.colSpan; c++) {
+            occupied.add(`${r},${c}`);
+          }
+        }
+      });
+
+      let row = 0, col = 0;
+      outer: for (let r = 0; r < template.rows; r++) {
+        for (let c = 0; c < template.cols; c++) {
+          if (!occupied.has(`${r},${c}`)) {
+            row = r;
+            col = c;
+            break outer;
+          }
+        }
+      }
+
+      const newElement = { ...createDefaultElement(type), row, col };
       updateTemplate({ elements: [...template.elements, newElement] });
       setSelectedElementIndex(template.elements.length);
+      setShowAddPanel(false);
     },
-    [template.elements, updateTemplate],
+    [template, updateTemplate],
   );
 
   const deleteElement = useCallback(
@@ -70,44 +105,107 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
       updateTemplate({ elements: newElements });
       if (selectedElementIndex === index) {
         setSelectedElementIndex(null);
+        setShowAddPanel(true);
       }
     },
     [template.elements, selectedElementIndex, updateTemplate],
   );
 
+  // Handle drag start (for repositioning)
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.effectAllowed = 'move';
+    setDragState({
+      index,
+      startX: e.clientX,
+      startY: e.clientY,
+      startRow: template.elements[index].row,
+      startCol: template.elements[index].col,
+    });
+  };
+
+  // Handle drop on canvas
+  const handleCanvasDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!dragState || !canvasRef.current) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const cellWidth = rect.width / template.cols;
+    const cellHeight = rect.height / template.rows;
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const newCol = Math.min(Math.max(0, Math.floor(x / cellWidth)), template.cols - 1);
+    const newRow = Math.min(Math.max(0, Math.floor(y / cellHeight)), template.rows - 1);
+
+    // Check if position is valid (not overlapping)
+    const el = template.elements[dragState.index];
+    const wouldOverlap = template.elements.some((other, i) => {
+      if (i === dragState.index) return false;
+      return (
+        newRow < other.row + other.rowSpan &&
+        newRow + el.rowSpan > other.row &&
+        newCol < other.col + other.colSpan &&
+        newCol + el.colSpan > other.col
+      );
+    });
+
+    if (!wouldOverlap) {
+      updateElement(dragState.index, { row: newRow, col: newCol });
+    }
+    setDragState(null);
+  };
+
+  // Handle resize
+  const handleResizeStart = (e: React.MouseEvent, index: number) => {
+    e.stopPropagation();
+    const el = template.elements[index];
+    setResizeState({
+      index,
+      startRowSpan: el.rowSpan,
+      startColSpan: el.colSpan,
+      startX: e.clientX,
+      startY: e.clientY,
+    });
+  };
+
+  const handleResizeMove = useCallback((e: MouseEvent) => {
+    if (!resizeState || !canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const cellWidth = rect.width / template.cols;
+    const cellHeight = rect.height / template.rows;
+    const deltaX = e.clientX - resizeState.startX;
+    const deltaY = e.clientY - resizeState.startY;
+    const deltaCols = Math.round(deltaX / cellWidth);
+    const deltaRows = Math.round(deltaY / cellHeight);
+    const newColSpan = Math.max(1, Math.min(template.cols - template.elements[resizeState.index].col, resizeState.startColSpan + deltaCols));
+    const newRowSpan = Math.max(1, Math.min(template.rows - template.elements[resizeState.index].row, resizeState.startRowSpan + deltaRows));
+    updateElement(resizeState.index, { colSpan: newColSpan, rowSpan: newRowSpan });
+  }, [resizeState, template, updateElement, canvasRef]);
+
+  const handleResizeEnd = useCallback(() => {
+    setResizeState(null);
+  }, []);
+
+  React.useEffect(() => {
+    if (resizeState) {
+      window.addEventListener('mousemove', handleResizeMove);
+      window.addEventListener('mouseup', handleResizeEnd);
+      return () => {
+        window.removeEventListener('mousemove', handleResizeMove);
+        window.removeEventListener('mouseup', handleResizeEnd);
+      };
+    }
+  }, [resizeState, handleResizeMove, handleResizeEnd]);
+
   const selectedElement = selectedElementIndex !== null ? template.elements[selectedElementIndex] : null;
+
+  // Calculate canvas size based on aspect ratio
+  const aspectRatio = template.width / template.height;
+  const canvasHeight = 400;
+  const canvasWidth = canvasHeight * aspectRatio;
 
   return (
     <div style={{ display: 'flex', height: '100%', gap: 16 }}>
-      {/* Left Panel: Properties (Draggable) */}
-      <Card
-        title="Available Fields"
-        style={{ width: 200, overflow: 'auto' }}
-        styles={{ body: { padding: 8 } }}
-      >
-        <Space orientation="vertical" style={{ width: '100%' }}>
-          {properties.map((prop) => (
-            <div
-              key={prop.key}
-              draggable
-              onDragStart={() => setDragToAdd('field')}
-              onDragEnd={() => setDragToAdd(null)}
-              style={{
-                padding: '4px 8px',
-                border: '1px solid #d9d9d9',
-                borderRadius: 4,
-                cursor: 'grab',
-                fontSize: 12,
-              }}
-            >
-              <Text>{prop.name}</Text>
-              <Text type="secondary" style={{ marginLeft: 4 }}>({prop.type})</Text>
-            </div>
-          ))}
-        </Space>
-      </Card>
-
-      {/* Center: Grid Canvas */}
+      {/* Left side: Grid canvas */}
       <Card
         title={
           <Space>
@@ -142,7 +240,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
             <Text>Rows:</Text>
             <InputNumber
               value={template.rows}
-              onChange={(v) => updateTemplate({ rows: v || 4 })}
+              onChange={(v) => updateTemplate({ rows: v || 2 })}
               min={1}
               max={20}
               size="small"
@@ -150,7 +248,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
             <Text>Cols:</Text>
             <InputNumber
               value={template.cols}
-              onChange={(v) => updateTemplate({ cols: v || 3 })}
+              onChange={(v) => updateTemplate({ cols: v || 2 })}
               min={1}
               max={10}
               size="small"
@@ -159,248 +257,277 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
         }
         style={{ flex: 1 }}
       >
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(${template.cols}, 1fr)`,
-            gridTemplateRows: `repeat(${template.rows}, 40px)`,
-            gap: 2,
-            background: '#f5f5f5',
-            padding: 8,
-            border: '1px solid #d9d9d9',
-          }}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            const rect = e.currentTarget.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            const cellWidth = rect.width / template.cols;
-            const cellHeight = rect.height / template.rows;
-            const col = Math.floor(x / cellWidth);
-            const row = Math.floor(y / cellHeight);
-            if (dragToAdd && col >= 0 && col < template.cols && row >= 0 && row < template.rows) {
-              addElement(dragToAdd, row, col);
-            }
-          }}
-        >
-          {Array.from({ length: template.rows * template.cols }).map((_, index) => {
-            const row = Math.floor(index / template.cols);
-            const col = index % template.cols;
-            const element = template.elements.find(
-              (el) =>
-                el.row <= row &&
-                row < el.row + el.rowSpan &&
-                el.col <= col &&
-                col < el.col + el.colSpan &&
-                el.row === row &&
-                el.col === col,
-            );
-
-            if (element) {
-              const elIndex = template.elements.indexOf(element);
-              const isSelected = elIndex === selectedElementIndex;
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+          <div
+            ref={canvasRef}
+            style={{
+              width: canvasWidth,
+              height: canvasHeight,
+              display: 'grid',
+              gridTemplateColumns: `repeat(${template.cols}, 1fr)`,
+              gridTemplateRows: `repeat(${template.rows}, 1fr)`,
+              gap: 2,
+              background: '#f5f5f5',
+              border: '1px solid #d9d9d9',
+              borderRadius: 4,
+              padding: 8,
+            }}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleCanvasDrop}
+            onClick={() => {
+              setSelectedElementIndex(null);
+              setShowAddPanel(true);
+            }}
+          >
+            {template.elements.map((element, index) => {
+              const isSelected = index === selectedElementIndex;
+              const isDragging = dragState?.index === index;
               return (
                 <div
                   key={index}
-                  onClick={() => setSelectedElementIndex(elIndex)}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedElementIndex(index);
+                    setShowAddPanel(false);
+                  }}
                   style={{
                     gridColumn: `${element.col + 1} / span ${element.colSpan}`,
                     gridRow: `${element.row + 1} / span ${element.rowSpan}`,
                     background: isSelected ? '#e6f7ff' : '#fff',
-                    border: `1px solid ${isSelected ? '#1890ff' : '#d9d9d9'}`,
+                    border: `2px solid ${isSelected ? '#1890ff' : '#d9d9d9'}`,
                     borderRadius: 4,
                     padding: 4,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    cursor: 'pointer',
-                    fontSize: 10,
+                    cursor: 'move',
+                    fontSize: 12,
                     overflow: 'hidden',
+                    position: 'relative',
+                    opacity: isDragging ? 0.5 : 1,
                   }}
                 >
-                  {element.type === 'field' ? `[${element.propertyName || 'Field'}]` :
+                  {element.type === 'field' ? `[${element.fieldName || 'Field'}]` :
                    element.type === 'qrCode' ? '[QR]' :
                    element.type === 'barcode' ? '[Barcode]' :
                    element.type === 'staticText' ? element.content : ''}
+                  {/* Resize handle */}
+                  {isSelected && (
+                    <div
+                      onMouseDown={(e) => handleResizeStart(e, index)}
+                      style={{
+                        position: 'absolute',
+                        right: 0,
+                        bottom: 0,
+                        width: 16,
+                        height: 16,
+                        cursor: 'se-resize',
+                        background: 'linear-gradient(135deg, transparent 50%, #1890ff 50%)',
+                        borderRadius: '0 0 4px 0',
+                      }}
+                    />
+                  )}
                 </div>
               );
-            }
-
-            return (
-              <div
-                key={index}
-                style={{
-                  background: '#fafafa',
-                  border: '1px dashed #d9d9d9',
-                  borderRadius: 4,
-                }}
-              />
-            );
-          })}
+            })}
+          </div>
         </div>
       </Card>
 
-      {/* Right Panel: Element Properties */}
+      {/* Right side: Add Element / Property panel */}
       <Card
-        title={selectedElement ? 'Element Properties' : 'Add Element'}
-        style={{ width: 250 }}
-        styles={{ body: { padding: 8 } }}
+        title={showAddPanel || !selectedElement ? 'Add Element' : 'Element Properties'}
+        style={{ width: 280 }}
+        bodyStyle={{ padding: 12 }}
       >
-        {selectedElement ? (
-          <Space orientation="vertical" style={{ width: '100%' }}>
-            <Button
-              danger
-              size="small"
-              icon={<DeleteOutlined />}
-              onClick={() => deleteElement(selectedElementIndex!)}
-            >
-              Delete Element
+        {showAddPanel || !selectedElement ? (
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <Button block onClick={() => addElement('field')}>+ Field</Button>
+            <Button block onClick={() => addElement('qrCode')}>+ QR Code</Button>
+            <Button block onClick={() => addElement('barcode')}>+ Barcode</Button>
+            <Button block onClick={() => addElement('staticText')}>+ Static Text</Button>
+          </Space>
+        ) : selectedElementIndex !== null ? (
+          <Space direction="vertical" style={{ width: '100%' }}>
+            {/* Back to Add panel button */}
+            <Button block icon={<ArrowLeftOutlined />} onClick={() => setShowAddPanel(true)}>
+              Add Element
             </Button>
 
-            <Text strong>Type: {selectedElement.type}</Text>
+            {/* Delete button */}
+            <Button
+              danger
+              block
+              icon={<DeleteOutlined />}
+              onClick={() => deleteElement(selectedElementIndex)}
+            >
+              Delete
+            </Button>
 
-            <Space>
-              <Text>Row:</Text>
-              <InputNumber
-                value={selectedElement.row}
-                onChange={(v) => updateElement(selectedElementIndex!, { row: v ?? 0 })}
-                min={0}
-                max={template.rows - 1}
-                size="small"
-              />
-            </Space>
+            {/* Position */}
+            <Card size="small" title="Position">
+              <Space>
+                <Text>Row:</Text>
+                <InputNumber
+                  value={selectedElement.row}
+                  onChange={(v) => updateElement(selectedElementIndex!, { row: v ?? 0 })}
+                  min={0}
+                  max={template.rows - 1}
+                  size="small"
+                />
+                <Text>Col:</Text>
+                <InputNumber
+                  value={selectedElement.col}
+                  onChange={(v) => updateElement(selectedElementIndex!, { col: v ?? 0 })}
+                  min={0}
+                  max={template.cols - 1}
+                  size="small"
+                />
+              </Space>
+            </Card>
 
-            <Space>
-              <Text>Col:</Text>
-              <InputNumber
-                value={selectedElement.col}
-                onChange={(v) => updateElement(selectedElementIndex!, { col: v ?? 0 })}
-                min={0}
-                max={template.cols - 1}
-                size="small"
-              />
-            </Space>
+            {/* Size */}
+            <Card size="small" title="Size">
+              <Space>
+                <Text>Row Span:</Text>
+                <InputNumber
+                  value={selectedElement.rowSpan}
+                  onChange={(v) => updateElement(selectedElementIndex!, { rowSpan: v ?? 1 })}
+                  min={1}
+                  max={template.rows - selectedElement.row}
+                  size="small"
+                />
+                <Text>Col Span:</Text>
+                <InputNumber
+                  value={selectedElement.colSpan}
+                  onChange={(v) => updateElement(selectedElementIndex!, { colSpan: v ?? 1 })}
+                  min={1}
+                  max={template.cols - selectedElement.col}
+                  size="small"
+                />
+              </Space>
+            </Card>
 
-            <Space>
-              <Text>Row Span:</Text>
-              <InputNumber
-                value={selectedElement.rowSpan}
-                onChange={(v) => updateElement(selectedElementIndex!, { rowSpan: v ?? 1 })}
-                min={1}
-                max={template.rows - selectedElement.row}
-                size="small"
-              />
-            </Space>
-
-            <Space>
-              <Text>Col Span:</Text>
-              <InputNumber
-                value={selectedElement.colSpan}
-                onChange={(v) => updateElement(selectedElementIndex!, { colSpan: v ?? 1 })}
-                min={1}
-                max={template.cols - selectedElement.col}
-                size="small"
-              />
-            </Space>
-
+            {/* Content - Field */}
             {selectedElement.type === 'field' && (
-              <>
-                <Space orientation="vertical" style={{ width: '100%' }}>
-                  <Text>Property:</Text>
+              <Card size="small" title="Content">
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <div><Text>Source:</Text></div>
                   <Select
-                    value={selectedElement.propertyName}
+                    value={selectedElement.source}
                     onChange={(v) => {
-                      const prop = properties.find((p) => p.name === v);
-                      if (prop) {
-                        updateElement(selectedElementIndex!, { propertyName: v, propertyType: prop.type });
+                      updateElement(selectedElementIndex!, {
+                        source: v as DataSource,
+                        fieldName: '',
+                        fieldType: '',
+                      } as TemplateElement);
+                    }}
+                    options={[
+                      { value: 'sample', label: 'Sample' },
+                      { value: 'user', label: 'User' },
+                    ]}
+                    style={{ width: '100%' }}
+                    size="small"
+                  />
+                  <div><Text>Field:</Text></div>
+                  <Select
+                    value={selectedElement.fieldName}
+                    onChange={(v) => {
+                      const selectedSource = selectedElement.source;
+                      if (selectedSource === 'sample') {
+                        const prop = properties.find((p) => p.name === v);
+                        updateElement(selectedElementIndex!, { fieldName: v, fieldType: prop?.type || 'text' });
+                      } else {
+                        updateElement(selectedElementIndex!, { fieldName: v, fieldType: 'text' });
                       }
                     }}
-                    options={properties.map((p) => ({ value: p.name, label: p.name }))}
+                    options={
+                      selectedElement.source === 'user'
+                        ? USER_FIELDS.map((f) => ({ value: f, label: f }))
+                        : properties.map((p) => ({ value: p.name, label: p.name }))
+                    }
                     style={{ width: '100%' }}
                     size="small"
                   />
                 </Space>
-              </>
+              </Card>
             )}
 
+            {/* Content - QR/Barcode */}
             {(selectedElement.type === 'qrCode' || selectedElement.type === 'barcode') && (
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <Text>Content Template:</Text>
-                <Input
-                  value={(selectedElement as { contentTemplate: string }).contentTemplate}
-                  onChange={(e) => updateElement(selectedElementIndex!, { contentTemplate: e.target.value } as TemplateElement)}
-                  placeholder="{ID}"
-                  size="small"
-                />
-              </Space>
+              <Card size="small" title="Content">
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <div><Text>Template:</Text></div>
+                  <Input
+                    value={(selectedElement as { contentTemplate: string }).contentTemplate}
+                    onChange={(e) => updateElement(selectedElementIndex!, { contentTemplate: e.target.value } as TemplateElement)}
+                    placeholder="{ID}"
+                    size="small"
+                  />
+                </Space>
+              </Card>
             )}
 
+            {/* Content - Static Text */}
             {selectedElement.type === 'staticText' && (
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <Text>Content:</Text>
-                <Input
-                  value={selectedElement.content}
-                  onChange={(e) => updateElement(selectedElementIndex!, { content: e.target.value })}
-                  size="small"
-                />
-              </Space>
+              <Card size="small" title="Content">
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <div><Text>Text:</Text></div>
+                  <Input
+                    value={selectedElement.content}
+                    onChange={(e) => updateElement(selectedElementIndex!, { content: e.target.value })}
+                    size="small"
+                  />
+                </Space>
+              </Card>
             )}
 
+            {/* Style */}
             {(selectedElement.type === 'field' || selectedElement.type === 'staticText') && (
-              <>
-                <Select
-                  value={selectedElement.fontSize || 'medium'}
-                  onChange={(v) => updateElement(selectedElementIndex!, { fontSize: v })}
-                  options={[
-                    { value: 'small', label: 'Small' },
-                    { value: 'medium', label: 'Medium' },
-                    { value: 'large', label: 'Large' },
-                  ]}
-                  style={{ width: '100%' }}
-                  size="small"
-                />
-                <Select
-                  value={selectedElement.align || 'left'}
-                  onChange={(v) => updateElement(selectedElementIndex!, { align: v })}
-                  options={[
-                    { value: 'left', label: 'Left' },
-                    { value: 'center', label: 'Center' },
-                    { value: 'right', label: 'Right' },
-                  ]}
-                  style={{ width: '100%' }}
-                  size="small"
-                />
-                <Select
-                  value={selectedElement.bold ? 'bold' : 'normal'}
-                  onChange={(v) => updateElement(selectedElementIndex!, { bold: v === 'bold' })}
-                  options={[
-                    { value: 'normal', label: 'Normal' },
-                    { value: 'bold', label: 'Bold' },
-                  ]}
-                  style={{ width: '100%' }}
-                  size="small"
-                />
-              </>
+              <Card size="small" title="Style">
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <div><Text>Font Size:</Text></div>
+                  <Select
+                    value={selectedElement.fontSize || 'medium'}
+                    onChange={(v) => updateElement(selectedElementIndex!, { fontSize: v })}
+                    options={[
+                      { value: 'small', label: 'Small' },
+                      { value: 'medium', label: 'Medium' },
+                      { value: 'large', label: 'Large' },
+                    ]}
+                    style={{ width: '100%' }}
+                    size="small"
+                  />
+                  <div><Text>Align:</Text></div>
+                  <Select
+                    value={selectedElement.align || 'left'}
+                    onChange={(v) => updateElement(selectedElementIndex!, { align: v })}
+                    options={[
+                      { value: 'left', label: 'Left' },
+                      { value: 'center', label: 'Center' },
+                      { value: 'right', label: 'Right' },
+                    ]}
+                    style={{ width: '100%' }}
+                    size="small"
+                  />
+                  <div><Text>Bold:</Text></div>
+                  <Select
+                    value={selectedElement.bold ? 'bold' : 'normal'}
+                    onChange={(v) => updateElement(selectedElementIndex!, { bold: v === 'bold' })}
+                    options={[
+                      { value: 'normal', label: 'Normal' },
+                      { value: 'bold', label: 'Bold' },
+                    ]}
+                    style={{ width: '100%' }}
+                    size="small"
+                  />
+                </Space>
+              </Card>
             )}
           </Space>
-        ) : (
-          <Space orientation="vertical" style={{ width: '100%' }}>
-            <Text type="secondary">Add new element:</Text>
-            <Button block size="small" onClick={() => addElement('field', 0, 0)}>
-              + Field
-            </Button>
-            <Button block size="small" onClick={() => addElement('qrCode', 0, 0)}>
-              + QR Code
-            </Button>
-            <Button block size="small" onClick={() => addElement('barcode', 0, 0)}>
-              + Barcode
-            </Button>
-            <Button block size="small" onClick={() => addElement('staticText', 0, 0)}>
-              + Static Text
-            </Button>
-          </Space>
-        )}
+        ) : null}
       </Card>
     </div>
   );
@@ -411,108 +538,25 @@ interface TemplateListProps {
   selectedId: string;
   onSelect: (id: string) => void;
   onAdd: () => void;
-  onDelete: (id: string) => void;
-  onDuplicate: (id: string) => void;
-  onRename: (id: string, name: string) => void;
-  onReorder: (templates: LabelTemplate[]) => void;
 }
 
-/**
- * Template list with management actions.
- */
 export const TemplateList: React.FC<TemplateListProps> = ({
   templates,
   selectedId,
   onSelect,
   onAdd,
-  onDelete,
-  onDuplicate,
-  onRename,
-  onReorder,
 }) => {
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState('');
-
   return (
-    <Space wrap style={{ width: '100%', marginBottom: 16 }}>
-      {templates.map((tpl, index) => (
-        <div key={tpl.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          {editingId === tpl.id ? (
-            <Input
-              value={editingName}
-              onChange={(e) => setEditingName(e.target.value)}
-              onBlur={() => {
-                if (editingName.trim()) {
-                  onRename(tpl.id, editingName.trim());
-                }
-                setEditingId(null);
-              }}
-              onPressEnter={() => {
-                if (editingName.trim()) {
-                  onRename(tpl.id, editingName.trim());
-                }
-                setEditingId(null);
-              }}
-              autoFocus
-              size="small"
-              style={{ width: 120 }}
-            />
-          ) : (
-            <Button
-              type={selectedId === tpl.id ? 'primary' : 'default'}
-              onClick={() => onSelect(tpl.id)}
-              size="small"
-            >
-              {tpl.name}
-            </Button>
-          )}
-          <Dropdown
-            menu={{
-              items: [
-                { key: 'rename', label: 'Rename', icon: <SettingOutlined /> },
-                { key: 'duplicate', label: 'Duplicate', icon: <CopyOutlined /> },
-                { key: 'delete', label: 'Delete', icon: <DeleteOutlined />, danger: true },
-                ...(templates.length > 1 ? [
-                  { type: 'divider' as const },
-                  { key: 'moveUp', label: 'Move Up', disabled: index === 0 },
-                  { key: 'moveDown', label: 'Move Down', disabled: index === templates.length - 1 },
-                ] : []),
-              ],
-              onClick: ({ key }) => {
-                switch (key) {
-                  case 'rename':
-                    setEditingId(tpl.id);
-                    setEditingName(tpl.name);
-                    break;
-                  case 'duplicate':
-                    onDuplicate(tpl.id);
-                    break;
-                  case 'delete':
-                    if (templates.length > 1) {
-                      onDelete(tpl.id);
-                    }
-                    break;
-                  case 'moveUp':
-                    if (index > 0) {
-                      const newTemplates = [...templates];
-                      [newTemplates[index - 1], newTemplates[index]] = [newTemplates[index], newTemplates[index - 1]];
-                      onReorder(newTemplates);
-                    }
-                    break;
-                  case 'moveDown':
-                    if (index < templates.length - 1) {
-                      const newTemplates = [...templates];
-                      [newTemplates[index], newTemplates[index + 1]] = [newTemplates[index + 1], newTemplates[index]];
-                      onReorder(newTemplates);
-                    }
-                    break;
-                }
-              },
-            }}
-          >
-            <Button size="small" icon={<MoreOutlined />} />
-          </Dropdown>
-        </div>
+    <Space wrap style={{ width: '100%', marginBottom: 8 }}>
+      {templates.map((tpl) => (
+        <Button
+          key={tpl.id}
+          type={selectedId === tpl.id ? 'primary' : 'default'}
+          onClick={() => onSelect(tpl.id)}
+          size="small"
+        >
+          {tpl.name}
+        </Button>
       ))}
       <Button
         size="small"
@@ -527,8 +571,9 @@ export const TemplateList: React.FC<TemplateListProps> = ({
   );
 };
 
-export const createNewTemplate = (): LabelTemplate => ({
+export const createNewTemplate = (existingCount: number): LabelTemplate => ({
   ...DEFAULT_TEMPLATE,
   id: generateTemplateId(),
-  name: `Template ${Date.now().toString(36)}`,
+  name: generateTemplateName(existingCount),
+  elements: createDefaultElements(),
 });

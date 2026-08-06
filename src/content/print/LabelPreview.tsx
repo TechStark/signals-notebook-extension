@@ -8,20 +8,26 @@ interface LabelPreviewProps {
   template: LabelTemplate;
   sampleData: Record<string, unknown>;
   properties: SampleProperty[];
+  userData?: { name: string; email: string };
 }
 
 /**
- * Resolves a content template string with sample data.
- * E.g., "{Sample ID}" -> "S-12345"
+ * Resolves a content template string with data from multiple sources.
  */
 function resolveTemplate(
   template: string,
   sampleData: Record<string, unknown>,
   properties: SampleProperty[],
+  userData?: { name: string; email: string },
 ): string {
-  return template.replace(/\{([^}]+)\}/g, (_, propName: string) => {
-    const prop = properties.find((p) => p.name === propName);
-    if (!prop) return `[Unknown: ${propName}]`;
+  return template.replace(/\{([^}]+)\}/g, (_, fieldName: string) => {
+    // First check user fields
+    if (fieldName === 'name' && userData) return userData.name;
+    if (fieldName === 'email' && userData) return userData.email;
+
+    // Then check sample properties
+    const prop = properties.find((p) => p.name === fieldName);
+    if (!prop) return `[Unknown: ${fieldName}]`;
     const value = sampleData[prop.key];
     if (value === null || value === undefined) return '-';
     if (typeof value === 'object' && 'auto' in (value as object)) {
@@ -38,11 +44,19 @@ function getFieldDisplayValue(
   element: TemplateElement & { type: 'field' },
   sampleData: Record<string, unknown>,
   properties: SampleProperty[],
+  userData?: { name: string; email: string },
 ): string {
+  if (element.source === 'user') {
+    if (element.fieldName === 'name' && userData) return userData.name;
+    if (element.fieldName === 'email' && userData) return userData.email;
+    return `[Unknown: ${element.fieldName}]`;
+  }
+
+  // sample source
   const prop = properties.find(
-    (p) => p.name === element.propertyName && p.type === element.propertyType,
+    (p) => p.name === element.fieldName && p.type === element.fieldType,
   );
-  if (!prop) return `[Unknown: ${element.propertyName}]`;
+  if (!prop) return `[Unknown: ${element.fieldName}]`;
   const value = sampleData[prop.key];
   if (value === null || value === undefined) return '-';
   if (typeof value === 'object' && 'auto' in (value as object)) {
@@ -58,8 +72,8 @@ export const LabelPreview: React.FC<LabelPreviewProps> = ({
   template,
   sampleData,
   properties,
+  userData,
 }) => {
-
   return (
     <div
       className="label-preview"
@@ -87,6 +101,7 @@ export const LabelPreview: React.FC<LabelPreviewProps> = ({
             element={element}
             sampleData={sampleData}
             properties={properties}
+            userData={userData}
           />
         ))}
       </div>
@@ -98,12 +113,14 @@ interface LabelElementProps {
   element: TemplateElement;
   sampleData: Record<string, unknown>;
   properties: SampleProperty[];
+  userData?: { name: string; email: string };
 }
 
 const LabelElement: React.FC<LabelElementProps> = ({
   element,
   sampleData,
   properties,
+  userData,
 }) => {
   const style: React.CSSProperties = {
     gridColumn: `${element.col + 1} / span ${element.colSpan}`,
@@ -122,7 +139,7 @@ const LabelElement: React.FC<LabelElementProps> = ({
     case 'field':
       return (
         <div style={style}>
-          {getFieldDisplayValue(element, sampleData, properties)}
+          {getFieldDisplayValue(element, sampleData, properties, userData)}
         </div>
       );
 
@@ -130,7 +147,7 @@ const LabelElement: React.FC<LabelElementProps> = ({
       return <div style={style}>{element.content}</div>;
 
     case 'qrCode': {
-      const content = resolveTemplate(element.contentTemplate, sampleData, properties);
+      const content = resolveTemplate(element.contentTemplate, sampleData, properties, userData);
       const [qrDataUrl, setQrDataUrl] = React.useState<string>('');
       React.useEffect(() => {
         generateQRCode(content).then(setQrDataUrl);
@@ -149,7 +166,7 @@ const LabelElement: React.FC<LabelElementProps> = ({
     }
 
     case 'barcode': {
-      const content = resolveTemplate(element.contentTemplate, sampleData, properties);
+      const content = resolveTemplate(element.contentTemplate, sampleData, properties, userData);
       const barcodeDataUrl = useMemo(
         () => generateBarcodeDataURL(content),
         [content],

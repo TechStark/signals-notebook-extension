@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Spin, Typography, Table, Alert, Tag, Button, Divider } from 'antd';
+import { Modal, Spin, Typography, Table, Alert, Tag, Button, Card, Space } from 'antd';
 import { PrinterOutlined, EditOutlined } from '@ant-design/icons';
 import type { TableProps, TableColumnsType } from 'antd';
 import dayjs from 'dayjs';
@@ -156,9 +156,7 @@ async function fetchSampleProperties(): Promise<SampleProperty[]> {
       credentials: 'include',
       headers: { Accept: 'application/json' },
     });
-    if (!response.ok) {
-      return [];
-    }
+    if (!response.ok) return [];
     const data = await response.json();
     return data.properties || [];
   } catch {
@@ -212,7 +210,6 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
         .then(([tableResult, props]) => {
           if (tableResult) {
             setTableData(tableResult);
-            // Use table cols as fallback for properties
             if (props.length === 0 && tableResult.cols) {
               setProperties(
                 tableResult.cols.map((col) => ({
@@ -256,51 +253,11 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
 
   const handleAddTemplate = () => {
     if (templates.templates.length >= 5) return;
-    const newTemplate = createNewTemplate();
+    const newTemplate = createNewTemplate(templates.templates.length);
     const newLabelTemplates = { templates: [...templates.templates, newTemplate] };
     setTemplates(newLabelTemplates);
     setLabelTemplates(newLabelTemplates);
     setSelectedTemplateId(newTemplate.id);
-  };
-
-  const handleDeleteTemplate = (id: string) => {
-    const newTemplates = templates.templates.filter((t) => t.id !== id);
-    const newLabelTemplates = { templates: newTemplates };
-    setTemplates(newLabelTemplates);
-    setLabelTemplates(newLabelTemplates);
-    if (selectedTemplateId === id && newTemplates.length > 0) {
-      setSelectedTemplateId(newTemplates[0].id);
-    }
-  };
-
-  const handleDuplicateTemplate = (id: string) => {
-    if (templates.templates.length >= 5) return;
-    const original = templates.templates.find((t) => t.id === id);
-    if (!original) return;
-    const duplicate: LabelTemplate = {
-      ...original,
-      id: `tpl-${Date.now()}`,
-      name: `${original.name} (copy)`,
-    };
-    const newLabelTemplates = { templates: [...templates.templates, duplicate] };
-    setTemplates(newLabelTemplates);
-    setLabelTemplates(newLabelTemplates);
-    setSelectedTemplateId(duplicate.id);
-  };
-
-  const handleRenameTemplate = (id: string, name: string) => {
-    const newTemplates = templates.templates.map((t) =>
-      t.id === id ? { ...t, name } : t,
-    );
-    const newLabelTemplates = { templates: newTemplates };
-    setTemplates(newLabelTemplates);
-    setLabelTemplates(newLabelTemplates);
-  };
-
-  const handleReorderTemplates = (newTemplates: LabelTemplate[]) => {
-    const newLabelTemplates = { templates: newTemplates };
-    setTemplates(newLabelTemplates);
-    setLabelTemplates(newLabelTemplates);
   };
 
   const rowSelection: TableProps<RowData>['rowSelection'] = {
@@ -357,49 +314,6 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
             <Text code style={{ fontSize: 12, wordBreak: 'break-all' }}>{eid}</Text>
           </div>
 
-          {/* Template Selection */}
-          <div style={{ marginBottom: 16 }}>
-            <TemplateList
-              templates={templates.templates}
-              selectedId={selectedTemplateId}
-              onSelect={setSelectedTemplateId}
-              onAdd={handleAddTemplate}
-              onDelete={handleDeleteTemplate}
-              onDuplicate={handleDuplicateTemplate}
-              onRename={handleRenameTemplate}
-              onReorder={handleReorderTemplates}
-            />
-          </div>
-
-          {/* Template Preview */}
-          {selectedTemplate && (
-            <div style={{ marginBottom: 16 }}>
-              <div
-                style={{
-                  padding: 16,
-                  background: '#fafafa',
-                  borderRadius: 8,
-                  display: 'inline-block',
-                }}
-              >
-                <LabelPreview
-                  template={selectedTemplate}
-                  sampleData={tableData.rows[0] || {}}
-                  properties={properties}
-                />
-              </div>
-              <Button
-                type="default"
-                icon={<EditOutlined />}
-                onClick={() => setEditMode(true)}
-              >
-                Edit Template
-              </Button>
-            </div>
-          )}
-
-          <Divider />
-
           {/* Sample Table */}
           <div style={{ marginBottom: 16 }}>
             <Text type="secondary">Total samples: </Text>
@@ -419,17 +333,58 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
             scroll={{ y: 500 }}
           />
 
-          {/* Print Button */}
-          <div style={{ marginTop: 16, textAlign: 'right' }}>
-            <Button
-              type="primary"
-              icon={<PrinterOutlined />}
-              onClick={handlePrint}
-              disabled={selectedRowKeys.length === 0 || !selectedTemplate}
-            >
-              Print Labels ({selectedRowKeys.length})
-            </Button>
-          </div>
+          {/* Print Settings Card - Below table */}
+          <Card
+            title="Print Settings"
+            style={{ marginTop: 16 }}
+            styles={{ body: { padding: 16 } }}
+          >
+            <Space direction="vertical" style={{ width: '100%' }}>
+              {/* Template Selection */}
+              <TemplateList
+                templates={templates.templates}
+                selectedId={selectedTemplateId}
+                onSelect={setSelectedTemplateId}
+                onAdd={handleAddTemplate}
+              />
+
+              {/* Template Preview + Edit + Print */}
+              {selectedTemplate && (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+                  <div
+                    style={{
+                      padding: 16,
+                      background: '#fafafa',
+                      borderRadius: 8,
+                      display: 'inline-block',
+                    }}
+                  >
+                    <LabelPreview
+                      template={selectedTemplate}
+                      sampleData={tableData.rows[0] || {}}
+                      properties={properties}
+                    />
+                  </div>
+                  <Space direction="vertical">
+                    <Button
+                      icon={<EditOutlined />}
+                      onClick={() => setEditMode(true)}
+                    >
+                      Edit Template
+                    </Button>
+                    <Button
+                      type="primary"
+                      icon={<PrinterOutlined />}
+                      onClick={handlePrint}
+                      disabled={selectedRowKeys.length === 0}
+                    >
+                      Print Labels ({selectedRowKeys.length})
+                    </Button>
+                  </Space>
+                </div>
+              )}
+            </Space>
+          </Card>
         </div>
       ) : null}
     </Modal>
