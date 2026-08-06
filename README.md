@@ -1,41 +1,45 @@
 # Signals Notebook Extension
 
-Chrome extension providing enhanced features for [Signals Notebook](https://www.signalsresearch.revvitycloud.com/).
+A Chrome extension that adds batch label printing capabilities to Signals Notebook.
 
-See [docs/architecture.md](docs/architecture.md) for design details.
+## Sample Label Printing
 
-## Project structure
+Design and print custom labels for your samples directly from Signals Notebook.
 
-```
-src/
-  content/       # Content script injected into the configured SNB domain (isolated world)
-  injected/      # Main-world bridge script (e.g. for reading page-context state)
-  background/    # Service worker: config, permissions, dynamic content script registration
-  popup/         # Extension popup UI (React + antd)
-  options/       # Options page — user configures their SNB hosts (React + antd)
-  shared/        # Cross-context types and storage helpers
-public/          # Static assets (icons)
-docs/            # Architecture and design notes
-```
+![Sample Tools Modal](assets/sample-tools.png)
 
-## Development
+### How to Use
 
-```bash
-pnpm install
-pnpm dev     # builds to dist/ in watch mode
-```
+1. Navigate to a **Samples Container** in Signals Notebook
+2. Click the **"Sample Tools"** button in the toolbar
+3. Select the samples you want to print labels for
+4. Configure your label template in the modal:
+   - Choose from saved templates or create a new one
+   - Edit template layout, add fields, QR codes, barcodes
+   - Preview labels with actual sample data
+5. Click **"Print Labels"** to generate and print
 
-Load the extension in Chrome:
+### Template Editor
 
-1. Go to `chrome://extensions`
-2. Enable "Developer mode"
-3. Click "Load unpacked" and select the `dist/` directory
+![Template Editor](assets/print-templates.png)
 
-After the first run, open the extension's options page and add your
-Signals Notebook host(s) to grant it host access.
+Design labels with a visual grid editor:
 
-## Build
+- **Flexible Layout**: Set label dimensions and grid structure
+- **Multiple Elements**: Add text fields, QR codes, barcodes, and static text
+- **Data Binding**: Insert sample properties or user information
+- **Customizable Styling**: Adjust font sizes, alignment, and date formats
+- **Template Library**: Save up to 5 templates with drag-and-drop reordering
 
-```bash
-pnpm build
-```
+## Installation
+
+[Install from Chrome Web Store](https://chrome.google.com/webstore/detail/TODO)
+
+After installation, configure your Signals Notebook host:
+1. Click the extension icon in Chrome toolbar
+2. Open Options
+3. Add your SNB host(s) (e.g., `your-instance.signalsresearch.revvitycloud.com`)
+
+---
+
+*For development documentation, see [CONTRIBUTING.md](CONTRIBUTING.md).*
