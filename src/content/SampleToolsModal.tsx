@@ -164,6 +164,25 @@ async function fetchSampleProperties(): Promise<SampleProperty[]> {
   }
 }
 
+async function fetchCurrentUser(): Promise<{ name: string; email: string } | null> {
+  try {
+    const baseUrl = window.location.origin;
+    const response = await fetch(`${baseUrl}/api/v1.0/profiles/me`, {
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const name = [data.firstName, data.lastName].filter(Boolean).join(' ') || '';
+    return {
+      name,
+      email: data.email || '',
+    };
+  } catch {
+    return null;
+  }
+}
+
 function buildColumns(): TableColumnsType<RowData> {
   return [
     createTextColumn('sampleId', 'ID'),
@@ -178,6 +197,7 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
   const [properties, setProperties] = useState<SampleProperty[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [userData, setUserData] = useState<{ name: string; email: string } | null>(null);
 
   // Template state
   const [templates, setTemplates] = useState<LabelTemplates>({ templates: [] });
@@ -206,8 +226,9 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
           return fetchSampleTableContent(entity.data.link);
         }),
         fetchSampleProperties(),
+        fetchCurrentUser(),
       ])
-        .then(([tableResult, props]) => {
+        .then(([tableResult, props, user]) => {
           if (tableResult) {
             setTableData(tableResult);
             if (props.length === 0 && tableResult.cols) {
@@ -224,6 +245,9 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
           } else {
             setError('Failed to load sample table');
           }
+          if (user) {
+            setUserData(user);
+          }
         })
         .catch(() => setError('Failed to load data'))
         .finally(() => setLoading(false));
@@ -239,6 +263,7 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
       template: selectedTemplate,
       samples: selectedSamples,
       properties,
+      userData: userData || undefined,
     });
   };
 
@@ -373,6 +398,7 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
                       template={selectedTemplate}
                       sampleData={tableData.rows[0] || {}}
                       properties={properties}
+                      userData={userData || undefined}
                     />
                   </div>
                   <Space orientation="vertical">

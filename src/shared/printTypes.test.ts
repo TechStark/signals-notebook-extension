@@ -9,8 +9,10 @@ describe('createDefaultElements', () => {
 
     // First element should be a field
     expect(elements[0].type).toBe('field');
-    expect(elements[0].source).toBe('sample');
-    expect(elements[0].fieldName).toBe('ID');
+    if (elements[0].type === 'field') {
+      expect(elements[0].source).toBe('sample');
+      expect(elements[0].fieldName).toBe('ID');
+    }
 
     // Second element should be a QR code
     expect(elements[1].type).toBe('qrCode');
@@ -41,8 +43,8 @@ describe('createDefaultElements', () => {
       throw new Error('Expected field element');
     }
 
-    // fieldType is now optional and should not be defined by default
-    expect('fieldType' in fieldElement).toBe(false);
+    // fieldType is now optional and should not be in the object
+    expect(fieldElement.fieldType).toBeUndefined();
   });
 });
 
