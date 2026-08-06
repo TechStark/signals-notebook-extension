@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Spin, Typography, Table, Alert, Tag, Button, Card, Space } from 'antd';
-import { PrinterOutlined, EditOutlined } from '@ant-design/icons';
+import { Modal, Spin, Typography, Table, Alert, Tag, Button, Card, Space, Popconfirm } from 'antd';
+import { PrinterOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { TableProps, TableColumnsType } from 'antd';
 import dayjs from 'dayjs';
 import localizedFormat from 'dayjs/plugin/localizedFormat';
@@ -349,14 +349,13 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
             style={{ marginTop: 16 }}
             styles={{ body: { padding: 16 } }}
           >
-            <Space direction="vertical" style={{ width: '100%' }}>
+            <Space orientation="vertical" style={{ width: '100%' }}>
               {/* Template Selection */}
               <TemplateList
                 templates={templates.templates}
                 selectedId={selectedTemplateId}
                 onSelect={setSelectedTemplateId}
                 onAdd={handleAddTemplate}
-                onDelete={handleDeleteTemplate}
               />
 
               {/* Template Preview + Edit + Print */}
@@ -383,6 +382,19 @@ export const SampleToolsModal: React.FC<SampleToolsModalProps> = ({ open, eid, o
                     >
                       Edit Template
                     </Button>
+                    <Popconfirm
+                      title={`Delete template "${selectedTemplate.name}"?`}
+                      onConfirm={() => handleDeleteTemplate(selectedTemplateId)}
+                      okText="Delete"
+                      okButtonProps={{ danger: true }}
+                    >
+                      <Button
+                        danger
+                        icon={<DeleteOutlined />}
+                      >
+                        Delete Template
+                      </Button>
+                    </Popconfirm>
                     <Button
                       type="primary"
                       icon={<PrinterOutlined />}

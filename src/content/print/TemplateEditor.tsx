@@ -568,7 +568,6 @@ interface TemplateListProps {
   selectedId: string;
   onSelect: (id: string) => void;
   onAdd: () => void;
-  onDelete: (id: string) => void;
 }
 
 export const TemplateList: React.FC<TemplateListProps> = ({
@@ -576,32 +575,18 @@ export const TemplateList: React.FC<TemplateListProps> = ({
   selectedId,
   onSelect,
   onAdd,
-  onDelete,
 }) => {
   return (
     <Space wrap style={{ width: '100%', marginBottom: 8 }}>
       {templates.map((tpl) => (
-        <Space.Compact key={tpl.id}>
-          <Button
-            type={selectedId === tpl.id ? 'primary' : 'default'}
-            onClick={() => onSelect(tpl.id)}
-            size="small"
-          >
-            {tpl.name}
-          </Button>
-          {templates.length > 1 && (
-            <Button
-              size="small"
-              icon={<DeleteOutlined />}
-              danger
-              onClick={() => {
-                if (confirm(`Delete template "${tpl.name}"?`)) {
-                  onDelete(tpl.id);
-                }
-              }}
-            />
-          )}
-        </Space.Compact>
+        <Button
+          key={tpl.id}
+          type={selectedId === tpl.id ? 'primary' : 'default'}
+          onClick={() => onSelect(tpl.id)}
+          size="small"
+        >
+          {tpl.name}
+        </Button>
       ))}
       <Button
         size="small"
