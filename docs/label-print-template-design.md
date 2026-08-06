@@ -56,9 +56,9 @@ Future extensibility: `experiment`, `materials` (not implemented in MVP)
 
 | Type | Description | Configuration |
 |------|-------------|---------------|
-| Field | Binds to data source field | `source`, `fieldName`, `fieldType` |
-| QR Code | Scannable 2D barcode | Content template with `{fieldName}` placeholders |
-| Barcode | Code128 1D barcode | Content template with `{fieldName}` placeholders |
+| Field | Binds to data source field | `source`, `fieldName` |
+| QR Code | Scannable 2D barcode | Structured content parts (static text + dynamic fields) |
+| Barcode | Code128 1D barcode | Structured content parts (static text + dynamic fields) |
 | Static Text | Fixed text label | Plain text content |
 
 ### Grid Layout
@@ -134,23 +134,27 @@ interface BaseElement {
 interface FieldElement extends BaseElement {
   type: 'field';
   source: 'sample' | 'user';    // Data source
-  fieldName: string;            // e.g., "Sample ID" or "name"
-  fieldType: string;             // For cross-tenant matching (sample source only)
+  fieldName: string;            // e.g., "ID" or "name"
 }
+
+// Content part for QR/Barcode elements
+type ContentPart =
+  | { type: 'staticText'; content: string }
+  | { type: 'field'; source: DataSource; fieldName: string };
 
 interface QRCodeElement extends BaseElement {
   type: 'qrCode';
-  contentTemplate: string;       // e.g., "{Sample ID}" or "ID: {Sample ID}"
+  contentParts: ContentPart[];  // Structured content parts
 }
 
 interface BarcodeElement extends BaseElement {
-  type: 'barcode';               // Always Code128 format
-  contentTemplate: string;       // e.g., "{Sample ID}"
+  type: 'barcode';              // Always Code128 format
+  contentParts: ContentPart[];   // Structured content parts
 }
 
 interface StaticTextElement extends BaseElement {
   type: 'staticText';
-  content: string;               // Fixed text content
+  content: string;              // Fixed text content
 }
 ```
 
@@ -169,7 +173,6 @@ interface StaticTextElement extends BaseElement {
       "type": "field",
       "source": "sample",
       "fieldName": "ID",
-      "fieldType": "text",
       "row": 0,
       "col": 0,
       "rowSpan": 1,
@@ -177,7 +180,9 @@ interface StaticTextElement extends BaseElement {
     },
     {
       "type": "qrCode",
-      "contentTemplate": "{ID}",
+      "contentParts": [
+        { "type": "field", "source": "sample", "fieldName": "ID" }
+      ],
       "row": 0,
       "col": 1,
       "rowSpan": 2,
@@ -186,6 +191,22 @@ interface StaticTextElement extends BaseElement {
   ]
 }
 ```
+
+### Example: URL with Multiple Parts
+
+```json
+{
+  "type": "qrCode",
+  "contentParts": [
+    { "type": "staticText", "content": "http://yourdomain/" },
+    { "type": "field", "source": "user", "fieldName": "email" },
+    { "type": "staticText", "content": "/" },
+    { "type": "field", "source": "sample", "fieldName": "ID" }
+  ]
+}
+```
+
+This resolves to: `http://yourdomain/user@example.com/S-12345`
 
 ## Cross-Tenant Compatibility
 
@@ -196,21 +217,31 @@ When rendering a template, the extension:
 1. Fetches current tenant's Sample Properties via API
 2. For each FieldElement:
    - If source is `user`: Use fixed fields (name, email)
-   - If source is `sample`: Find matching property by `fieldName + fieldType`
+   - If source is `sample`: Find matching property by `fieldName`
+     - First try matching by `name` (display name)
+     - Then try matching by `key` (internal identifier)
 3. If found, renders the field value
 4. If not found, renders `[Unknown: {fieldName}]`
 
 ### QR/Barcode Content Resolution
 
-Content templates support placeholders from any data source:
+Content is built from structured parts:
 
+```json
+{
+  "contentParts": [
+    { "type": "staticText", "content": "ID: " },
+    { "type": "field", "source": "sample", "fieldName": "ID" },
+    { "type": "staticText", "content": " by " },
+    { "type": "field", "source": "user", "fieldName": "name" }
+  ]
+}
 ```
-Template: "{Sample ID} - {name}"
-Resolution: 
-  - {Sample ID}: Find sample property with name="Sample ID"
-  - {name}: Use current user's name
-Output: "S-12345 - John Doe" (encoded as QR/Barcode)
-```
+
+Resolution:
+1. For each part, resolve the value
+2. Concatenate all parts
+3. Result: `ID: S-12345 by John Doe` (encoded as QR/Barcode)
 
 ## UI Design
 
@@ -255,7 +286,11 @@ When an element is selected, the right panel shows:
 - **Position**: Row, Col (number inputs)
 - **Size**: Row Span, Col Span (number inputs)
 - **Content** (for Field): Source dropdown, Field dropdown
-- **Content** (for QR/Barcode): Content template input
+- **Content** (for QR/Barcode): Dynamic content builder
+  - Add "Text" button: Adds static text part
+  - Add "Field" button: Adds field part (with Source and Field dropdowns)
+  - List of parts with reorder handles and delete buttons
+  - Live preview of resolved content
 - **Content** (for Static Text): Text input
 - **Style**: Font Size dropdown, Bold toggle, Align dropdown
 
