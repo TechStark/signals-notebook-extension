@@ -2,6 +2,15 @@
 
 A Chrome extension that adds batch label printing capabilities to Signals Notebook.
 
+## Installation
+
+[Install from Chrome Web Store](https://chrome.google.com/webstore/detail/fiiehoaijdnnonolcjogmjhpmjjlnglp)
+
+After installation, configure your Signals Notebook host:
+1. Click the extension icon in Chrome toolbar
+2. Open Options
+3. Add your SNB host(s) (e.g., `your-instance.signalsresearch.revvitycloud.com`)
+
 ## Sample Label Printing
 
 Design and print custom labels for your samples directly from Signals Notebook.
@@ -30,15 +39,6 @@ Design labels with a visual grid editor:
 - **Data Binding**: Insert sample properties or user information
 - **Customizable Styling**: Adjust font sizes, alignment, and date formats
 - **Template Library**: Save up to 5 templates with drag-and-drop reordering
-
-## Installation
-
-[Install from Chrome Web Store](https://chrome.google.com/webstore/detail/fiiehoaijdnnonolcjogmjhpmjjlnglp)
-
-After installation, configure your Signals Notebook host:
-1. Click the extension icon in Chrome toolbar
-2. Open Options
-3. Add your SNB host(s) (e.g., `your-instance.signalsresearch.revvitycloud.com`)
 
 ---
 
