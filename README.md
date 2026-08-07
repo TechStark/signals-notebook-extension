@@ -33,7 +33,7 @@ Design labels with a visual grid editor:
 
 ## Installation
 
-[Install from Chrome Web Store](https://chrome.google.com/webstore/detail/TODO)
+[Install from Chrome Web Store](https://chrome.google.com/webstore/detail/fiiehoaijdnnonolcjogmjhpmjjlnglp)
 
 After installation, configure your Signals Notebook host:
 1. Click the extension icon in Chrome toolbar
